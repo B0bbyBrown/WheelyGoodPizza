@@ -33,10 +33,21 @@ function Router() {
 
 function App() {
   useEffect(() => {
-    // For demo purposes, set the admin user ID directly
-    // This ID corresponds to the admin user created by the seed script
+    // For demo purposes, get the admin user ID from the server
     // In production, this would be handled by proper authentication
-    setCurrentUser("c7d4a697-a200-4670-9c3e-78487591cff8");
+    fetch("/api/auth/demo-admin")
+      .then(res => res.json())
+      .then(data => {
+        if (data.adminId) {
+          setCurrentUser(data.adminId);
+          console.log("Set current user to admin:", data.adminId);
+        } else {
+          console.error("No admin user found");
+        }
+      })
+      .catch(error => {
+        console.error("Failed to get admin user:", error);
+      });
   }, []);
 
   return (

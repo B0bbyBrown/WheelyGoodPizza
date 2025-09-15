@@ -103,23 +103,22 @@ export default function Layout({ children, title, description }: LayoutProps) {
           <ul className="space-y-2">
             {navigation.map((item) => (
               <li key={item.name}>
-                <Link href={item.href}>
-                  <a 
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      item.active 
-                        ? 'sidebar-active' 
-                        : 'hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                    data-testid={`nav-link-${item.name.toLowerCase().replace(/ /g, '-')}`}
-                  >
-                    <item.icon className="mr-3 h-4 w-4" />
-                    {item.name}
-                    {item.badge && (
-                      <Badge variant="destructive" className="ml-auto text-xs">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </a>
+                <Link 
+                  href={item.href}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    item.active 
+                      ? 'sidebar-active' 
+                      : 'hover:bg-accent hover:text-accent-foreground'
+                  }`}
+                  data-testid={`nav-link-${item.name.toLowerCase().replace(/ /g, '-')}`}
+                >
+                  <item.icon className="mr-3 h-4 w-4" />
+                  {item.name}
+                  {item.badge && (
+                    <Badge variant="destructive" className="ml-auto text-xs">
+                      {item.badge}
+                    </Badge>
+                  )}
                 </Link>
               </li>
             ))}
