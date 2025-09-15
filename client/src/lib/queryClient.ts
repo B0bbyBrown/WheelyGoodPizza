@@ -29,9 +29,18 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
+    // Use the custom apiRequest if available (set by setCurrentUser)
+    const requestFn = (window as any).apiRequest || fetch;
+    
+    let res: Response;
+    if (requestFn === fetch) {
+      res = await fetch(queryKey.join("/") as string, {
+        credentials: "include",
+      });
+    } else {
+      // Use the authenticated apiRequest function
+      res = await requestFn("GET", queryKey.join("/") as string);
+    }
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;

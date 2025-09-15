@@ -1,26 +1,36 @@
 import { storage } from "./storage";
 
-async function seed() {
+export async function seed() {
   console.log("Starting seed process...");
 
   try {
-    // Create admin user
-    const adminUser = await storage.createUser({
-      email: "admin@pizzatruck.com",
-      password: "admin123",
-      name: "John Smith",
-      role: "ADMIN",
-    });
-    console.log("Created admin user:", adminUser.email);
+    // Create admin user (idempotent)
+    let adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
+    if (!adminUser) {
+      adminUser = await storage.createUser({
+        email: "admin@pizzatruck.com",
+        password: "admin123",
+        name: "John Smith",
+        role: "ADMIN",
+      });
+      console.log("Created admin user:", adminUser.email, "ID:", adminUser.id);
+    } else {
+      console.log("Admin user already exists:", adminUser.email, "ID:", adminUser.id);
+    }
 
-    // Create cashier user
-    const cashierUser = await storage.createUser({
-      email: "cashier@pizzatruck.com",
-      password: "cashier123",
-      name: "Jane Doe",
-      role: "CASHIER",
-    });
-    console.log("Created cashier user:", cashierUser.email);
+    // Create cashier user (idempotent)
+    let cashierUser = await storage.getUserByEmail("cashier@pizzatruck.com");
+    if (!cashierUser) {
+      cashierUser = await storage.createUser({
+        email: "cashier@pizzatruck.com",
+        password: "cashier123",
+        name: "Jane Doe",
+        role: "CASHIER",
+      });
+      console.log("Created cashier user:", cashierUser.email);
+    } else {
+      console.log("Cashier user already exists:", cashierUser.email);
+    }
 
     // Create supplier
     const supplier = await storage.createSupplier({
@@ -257,4 +267,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   seed();
 }
 
-export { seed };

@@ -124,7 +124,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const now = new Date();
     const ingredient: Ingredient = { 
-      ...insertIngredient, 
+      ...insertIngredient,
+      lowStockLevel: insertIngredient.lowStockLevel || null,
       id, 
       createdAt: now, 
       updatedAt: now 
@@ -154,7 +155,9 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const now = new Date();
     const supplier: Supplier = { 
-      ...insertSupplier, 
+      ...insertSupplier,
+      email: insertSupplier.email || null,
+      phone: insertSupplier.phone || null,
       id, 
       createdAt: now, 
       updatedAt: now 
@@ -175,7 +178,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const now = new Date();
     const product: Product = { 
-      ...insertProduct, 
+      ...insertProduct,
+      active: insertProduct.active ?? true,
       id, 
       createdAt: now, 
       updatedAt: now 
@@ -302,7 +306,9 @@ export class MemStorage implements IStorage {
   async createStockMovement(insertMovement: InsertStockMovement): Promise<StockMovement> {
     const id = randomUUID();
     const movement: StockMovement = { 
-      ...insertMovement, 
+      ...insertMovement,
+      note: insertMovement.note || null,
+      reference: insertMovement.reference || null,
       id, 
       createdAt: new Date() 
     };
@@ -479,6 +485,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const session: CashSession = { 
       ...insertSession,
+      notes: insertSession.notes || null,
+      openingFloat: insertSession.openingFloat || "0",
       id,
       openedAt: new Date(),
       closedAt: null,
@@ -526,7 +534,7 @@ export class MemStorage implements IStorage {
   async getCurrentStock(): Promise<{ ingredientId: string; ingredientName: string; totalQuantity: string; unit: string; lowStockLevel: string | null }[]> {
     const result: { ingredientId: string; ingredientName: string; totalQuantity: string; unit: string; lowStockLevel: string | null }[] = [];
     
-    for (const ingredient of this.ingredients.values()) {
+    for (const ingredient of Array.from(this.ingredients.values())) {
       const lots = await this.getInventoryLots(ingredient.id);
       const totalQuantity = lots.reduce((sum, lot) => sum + parseFloat(lot.quantity), 0);
       
@@ -591,7 +599,7 @@ export class MemStorage implements IStorage {
     
     const result: { productId: string; productName: string; sku: string; totalQty: number; totalRevenue: string }[] = [];
     
-    for (const [productId, stats] of productStats.entries()) {
+    for (const [productId, stats] of Array.from(productStats.entries())) {
       const product = await this.getProduct(productId);
       if (product) {
         result.push({

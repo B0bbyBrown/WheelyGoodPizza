@@ -33,9 +33,10 @@ function Router() {
 
 function App() {
   useEffect(() => {
-    // For demo purposes, set a default admin user
+    // For demo purposes, set the admin user ID directly
+    // This ID corresponds to the admin user created by the seed script
     // In production, this would be handled by proper authentication
-    setCurrentUser("admin-user-id");
+    setCurrentUser("c7d4a697-a200-4670-9c3e-78487591cff8");
   }, []);
 
   return (

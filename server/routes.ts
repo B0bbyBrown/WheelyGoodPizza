@@ -27,6 +27,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Demo endpoint to get admin user ID for development
+  app.get("/api/auth/demo-admin", async (req, res) => {
+    try {
+      const adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
+      res.json({ adminId: adminUser?.id || null });
+    } catch (error) {
+      res.json({ adminId: null });
+    }
+  });
+
   app.get("/api/me", auth, (req: any, res) => {
     res.json({ user: { ...req.user, password: undefined } });
   });
