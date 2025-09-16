@@ -29,16 +29,16 @@ Preferred communication style: Simple, everyday language.
 - **File Structure**: Organized into routes, storage layer, and business logic
 
 ### Data Storage Solutions
-- **Database**: PostgreSQL with Drizzle ORM
+- **Database**: SQLite with Drizzle ORM for portability and easy export
 - **Schema Management**: Drizzle Kit for migrations and schema evolution
-- **Database Connection**: Connection pooling with pg (node-postgres)
+- **Database Connection**: Better-SQLite3 for synchronous operations
 - **FIFO Implementation**: Custom FIFO (First In, First Out) inventory lot tracking system
 
 ### Authentication and Authorization
-- **Current Implementation**: Simple demo authentication with user ID headers
+- **Current Implementation**: Passport.js with email-based login and secure password hashing
 - **Role-based Access**: Three user roles (ADMIN, CASHIER, KITCHEN) with different permissions
-- **Session Management**: Planned for production implementation
-- **Security**: Middleware-based route protection
+- **Session Management**: Express session with SQLite session store
+- **Security**: Middleware-based route protection with secure authentication
 
 ### Key Business Logic Components
 
@@ -78,9 +78,9 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Database Services
-- **PostgreSQL**: Primary database for all application data
+- **SQLite**: Local database file for portability and easy backup
 - **Drizzle ORM**: Type-safe database access layer
-- **Connection Pooling**: pg library for efficient database connections
+- **Better-SQLite3**: Synchronous SQLite driver for Node.js
 
 ### Frontend Libraries
 - **React Ecosystem**: React 18 with TypeScript and modern hooks
