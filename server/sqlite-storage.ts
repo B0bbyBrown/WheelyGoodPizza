@@ -566,33 +566,35 @@ export class SqliteStorage implements IStorage {
   }
 
   async getRecentActivity(limit: number): Promise<any[]> {
+    const half = Math.max(1, Math.floor(limit / 2));
+
     // Get recent sales
     const recentSales = await db.select({
       type: sql<string>`'sale'`,
       id: sales.id,
       description: sql<string>`'Sale of $' || ${sales.total}`,
       amount: sales.total,
-      timestamp: sales.createdAt,
+      createdAt: sales.createdAt,
     })
     .from(sales)
     .orderBy(desc(sales.createdAt))
-    .limit(limit / 2);
+    .limit(half);
 
-    // Get recent expenses  
+    // Get recent expenses
     const recentExpenses = await db.select({
       type: sql<string>`'expense'`,
       id: expenses.id,
       description: expenses.label,
       amount: expenses.amount,
-      timestamp: expenses.createdAt,
+      createdAt: expenses.createdAt,
     })
     .from(expenses)
     .orderBy(desc(expenses.createdAt))
-    .limit(limit / 2);
+    .limit(half);
 
     // Combine and sort
     const combined = [...recentSales, ...recentExpenses]
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
 
     return combined.map(item => ({

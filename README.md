@@ -43,7 +43,7 @@ The Pizza Truck Operations Management System is a complete solution for managing
    ```
 
 4. **Access the application**
-   - Open your browser to `http://localhost:5000`
+   - Open your browser to `http://localhost:5081` (development)
    - Login with demo credentials:
      - Email: `admin@pizzatruck.com`
      - Password: `admin123`
@@ -322,7 +322,8 @@ cp pizza-truck.db backup/pizza-truck-$(date +%Y%m%d).db
 ### Common Issues
 
 **Application won't start:**
-- Check that port 5000 is available
+- Check that the dev port 5081 is available
+- On macOS, port 5000 is often reserved by AirPlay/Control Center. Use 5081 for development (`npm run dev`).
 - Verify Node.js version (18+ required)
 - Ensure all dependencies are installed
 
