@@ -3,6 +3,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
+import AuthForm from "@/components/auth-form";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
@@ -12,8 +14,6 @@ import Sales from "@/pages/sales";
 import Sessions from "@/pages/sessions";
 import Expenses from "@/pages/expenses";
 import Reports from "@/pages/reports";
-import { setCurrentUser } from "@/lib/api";
-import { useEffect } from "react";
 
 function Router() {
   return (
@@ -31,31 +31,33 @@ function Router() {
   );
 }
 
-function App() {
-  useEffect(() => {
-    // For demo purposes, get the admin user ID from the server
-    // In production, this would be handled by proper authentication
-    fetch("/api/auth/demo-admin")
-      .then(res => res.json())
-      .then(data => {
-        if (data.adminId) {
-          setCurrentUser(data.adminId);
-          console.log("Set current user to admin:", data.adminId);
-        } else {
-          console.error("No admin user found");
-        }
-      })
-      .catch(error => {
-        console.error("Failed to get admin user:", error);
-      });
-  }, []);
+function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <AuthForm />;
+  }
+  
+  return <Router />;
+}
 
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <AppContent />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

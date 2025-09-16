@@ -8,12 +8,20 @@ import {
   type Expense, type InsertExpense, type NewPurchase, type NewSale, type StockAdjustment
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import session from "express-session"; // From javascript_auth_all_persistance blueprint
+import createMemoryStore from "memorystore"; // From javascript_auth_all_persistance blueprint
+
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
+  // Session store (from javascript_auth_all_persistance blueprint)
+  sessionStore: session.SessionStore;
+
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
 
   // Ingredients
   getIngredients(): Promise<Ingredient[]>;
@@ -76,6 +84,9 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  // Session store (from javascript_auth_all_persistance blueprint)
+  public sessionStore: session.SessionStore;
+  
   private users: Map<string, User> = new Map();
   private ingredients: Map<string, Ingredient> = new Map();
   private suppliers: Map<string, Supplier> = new Map();
@@ -89,6 +100,13 @@ export class MemStorage implements IStorage {
   private saleItems: Map<string, SaleItem> = new Map();
   private stockMovements: Map<string, StockMovement> = new Map();
   private expenses: Map<string, Expense> = new Map();
+  
+  constructor() {
+    // Initialize session store (from javascript_auth_all_persistance blueprint)
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // 24 hours
+    });
+  }
 
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
@@ -110,6 +128,19 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updateData: Partial<InsertUser>): Promise<User> {
+    const existing = this.users.get(id);
+    if (!existing) throw new Error("User not found");
+    
+    const updated: User = { 
+      ...existing, 
+      ...updateData, 
+      updatedAt: new Date() 
+    };
+    this.users.set(id, updated);
+    return updated;
   }
 
   async getIngredients(): Promise<Ingredient[]> {

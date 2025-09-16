@@ -261,3 +261,28 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type NewPurchase = z.infer<typeof newPurchaseSchema>;
 export type NewSale = z.infer<typeof newSaleSchema>;
 export type StockAdjustment = z.infer<typeof stockAdjustmentSchema>;
+
+// Auth validation schemas
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const registerSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(1, "Name is required"),
+  // Note: role is intentionally not included here as it will be hardcoded to CASHIER
+});
+
+export type LoginRequest = z.infer<typeof loginSchema>;
+export type RegisterRequest = z.infer<typeof registerSchema>;
+
+// Safe user type without password field
+export type SafeUser = Omit<User, 'password'>;
+
+// Utility function to sanitize user objects
+export function sanitizeUser(user: User): SafeUser {
+  const { password, ...safeUser } = user;
+  return safeUser;
+}

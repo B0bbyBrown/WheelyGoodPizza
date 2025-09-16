@@ -45,6 +45,14 @@ app.use((req, res, next) => {
     await seed();
   } else {
     log("Seed data already exists, skipping seed process");
+    
+    // Backfill: check if admin has plaintext password and update to hashed
+    if (existingAdmin.password && !existingAdmin.password.includes('.')) {
+      const { hashPassword } = await import("./lib/password");
+      const hashedPassword = await hashPassword("admin123");
+      await storage.updateUser(existingAdmin.id, { password: hashedPassword });
+      log("Backfilled admin user with hashed password");
+    }
   }
 
   const server = await registerRoutes(app);

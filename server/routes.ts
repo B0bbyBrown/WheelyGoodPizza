@@ -1,31 +1,36 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { createAuthMiddleware, requireRole } from "./lib/auth";
+import { setupAuth } from "./auth"; // From javascript_auth_all_persistance blueprint
 import { 
   insertIngredientSchema, insertSupplierSchema, insertProductSchema,
   newPurchaseSchema, newSaleSchema, stockAdjustmentSchema,
   insertCashSessionSchema, insertExpenseSchema, insertRecipeItemSchema
 } from "@shared/schema";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  const auth = createAuthMiddleware(storage);
+// Authentication middleware (from javascript_auth_all_persistance blueprint)
+function requireAuth(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  next();
+}
 
-  // Authentication routes
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-      const user = await storage.getUserByEmail(email);
-      
-      if (!user || user.password !== password) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      res.json({ user: { ...user, password: undefined } });
-    } catch (error) {
-      res.status(500).json({ error: "Login failed" });
+function requireRole(role: string) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
     }
-  });
+    if (req.user.role !== role && req.user.role !== "ADMIN") {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    next();
+  };
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication (from javascript_auth_all_persistance blueprint)
+  setupAuth(app);
 
   // Demo endpoint to get admin user ID for development
   app.get("/api/auth/demo-admin", async (req, res) => {
@@ -37,12 +42,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/me", auth, (req: any, res) => {
-    res.json({ user: { ...req.user, password: undefined } });
-  });
-
   // Ingredients
-  app.get("/api/ingredients", auth, async (req, res) => {
+  app.get("/api/ingredients", requireAuth, async (req, res) => {
     try {
       const ingredients = await storage.getIngredients();
       res.json(ingredients);
@@ -51,7 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ingredients", auth, requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/ingredients", requireRole("ADMIN"), async (req, res) => {
     try {
       const data = insertIngredientSchema.parse(req.body);
       const ingredient = await storage.createIngredient(data);
@@ -62,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Suppliers
-  app.get("/api/suppliers", auth, async (req, res) => {
+  app.get("/api/suppliers", requireAuth, async (req, res) => {
     try {
       const suppliers = await storage.getSuppliers();
       res.json(suppliers);
@@ -71,7 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/suppliers", auth, requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/suppliers", requireRole("ADMIN"), async (req, res) => {
     try {
       const data = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(data);
@@ -82,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products
-  app.get("/api/products", auth, async (req, res) => {
+  app.get("/api/products", requireAuth, async (req, res) => {
     try {
       const products = await storage.getProducts();
       res.json(products);
@@ -91,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", auth, requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/products", requireRole("ADMIN"), async (req, res) => {
     try {
       const { recipe, ...productData } = req.body;
       const data = insertProductSchema.parse(productData);
@@ -115,7 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id/recipe", auth, async (req, res) => {
+  app.get("/api/products/:id/recipe", requireAuth, async (req, res) => {
     try {
       const recipeItems = await storage.getRecipeItems(req.params.id);
       res.json(recipeItems);
@@ -125,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchases
-  app.get("/api/purchases", auth, async (req, res) => {
+  app.get("/api/purchases", requireAuth, async (req, res) => {
     try {
       const purchases = await storage.getPurchases();
       res.json(purchases);
@@ -134,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchases", auth, requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/purchases", requireRole("ADMIN"), async (req, res) => {
     try {
       const data = newPurchaseSchema.parse(req.body);
       const purchase = await storage.createPurchase(data);
@@ -145,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stock management
-  app.get("/api/stock/current", auth, async (req, res) => {
+  app.get("/api/stock/current", requireAuth, async (req, res) => {
     try {
       const stock = await storage.getCurrentStock();
       res.json(stock);
@@ -154,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stock/low", auth, async (req, res) => {
+  app.get("/api/stock/low", requireAuth, async (req, res) => {
     try {
       const lowStock = await storage.getLowStockIngredients();
       res.json(lowStock);
@@ -163,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/stock/adjust", auth, requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/stock/adjust", requireRole("ADMIN"), async (req, res) => {
     try {
       const data = stockAdjustmentSchema.parse(req.body);
       await storage.adjustStock(data);
@@ -173,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stock/movements", auth, async (req, res) => {
+  app.get("/api/stock/movements", requireAuth, async (req, res) => {
     try {
       const ingredientId = req.query.ingredientId as string;
       const movements = await storage.getStockMovements(ingredientId);
@@ -184,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sales
-  app.get("/api/sales", auth, async (req, res) => {
+  app.get("/api/sales", requireAuth, async (req, res) => {
     try {
       const from = req.query.from ? new Date(req.query.from as string) : undefined;
       const to = req.query.to ? new Date(req.query.to as string) : undefined;
@@ -195,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", auth, async (req: any, res) => {
+  app.post("/api/sales", requireAuth, async (req: any, res) => {
     try {
       const data = newSaleSchema.parse(req.body);
       const sale = await storage.createSale(data, req.user.id);
@@ -205,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sales/:id/items", auth, async (req, res) => {
+  app.get("/api/sales/:id/items", requireAuth, async (req, res) => {
     try {
       const items = await storage.getSaleItems(req.params.id);
       res.json(items);
@@ -215,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cash sessions
-  app.get("/api/sessions", auth, async (req, res) => {
+  app.get("/api/sessions", requireAuth, async (req, res) => {
     try {
       const sessions = await storage.getCashSessions();
       res.json(sessions);
@@ -224,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sessions/active", auth, async (req, res) => {
+  app.get("/api/sessions/active", requireAuth, async (req, res) => {
     try {
       const session = await storage.getActiveCashSession();
       res.json(session || null);
@@ -233,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions/open", auth, async (req: any, res) => {
+  app.post("/api/sessions/open", requireAuth, async (req: any, res) => {
     try {
       const data = insertCashSessionSchema.parse({
         ...req.body,
@@ -246,7 +247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions/:id/close", auth, async (req: any, res) => {
+  app.post("/api/sessions/:id/close", requireAuth, async (req: any, res) => {
     try {
       const { closingFloat, notes } = req.body;
       const session = await storage.closeCashSession(
@@ -262,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Expenses
-  app.get("/api/expenses", auth, async (req, res) => {
+  app.get("/api/expenses", requireAuth, async (req, res) => {
     try {
       const expenses = await storage.getExpenses();
       res.json(expenses);
@@ -271,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/expenses", auth, async (req, res) => {
+  app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
       const data = insertExpenseSchema.parse(req.body);
       const expense = await storage.createExpense(data);
@@ -282,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports
-  app.get("/api/reports/overview", auth, async (req, res) => {
+  app.get("/api/reports/overview", requireAuth, async (req, res) => {
     try {
       const kpis = await storage.getTodayKPIs();
       res.json(kpis);
@@ -291,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports/top-products", auth, async (req, res) => {
+  app.get("/api/reports/top-products", requireAuth, async (req, res) => {
     try {
       const from = req.query.from ? new Date(req.query.from as string) : new Date();
       const to = req.query.to ? new Date(req.query.to as string) : new Date();
@@ -309,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports/activity", auth, async (req, res) => {
+  app.get("/api/reports/activity", requireAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const activity = await storage.getRecentActivity(limit);

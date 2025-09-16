@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { hashPassword } from "./lib/password";
 
 export async function seed() {
   console.log("Starting seed process...");
@@ -9,13 +10,20 @@ export async function seed() {
     if (!adminUser) {
       adminUser = await storage.createUser({
         email: "admin@pizzatruck.com",
-        password: "admin123",
+        password: await hashPassword("admin123"),
         name: "John Smith",
         role: "ADMIN",
       });
       console.log("Created admin user:", adminUser.email, "ID:", adminUser.id);
     } else {
-      console.log("Admin user already exists:", adminUser.email, "ID:", adminUser.id);
+      // Backfill: if password is plaintext (no dot), update to hashed
+      if (!adminUser.password.includes('.')) {
+        const hashedPassword = await hashPassword("admin123");
+        await storage.updateUser(adminUser.id, { password: hashedPassword });
+        console.log("Backfilled admin user with hashed password:", adminUser.email);
+      } else {
+        console.log("Admin user already exists:", adminUser.email, "ID:", adminUser.id);
+      }
     }
 
     // Create cashier user (idempotent)
@@ -23,7 +31,7 @@ export async function seed() {
     if (!cashierUser) {
       cashierUser = await storage.createUser({
         email: "cashier@pizzatruck.com",
-        password: "cashier123",
+        password: await hashPassword("cashier123"),
         name: "Jane Doe",
         role: "CASHIER",
       });

@@ -13,6 +13,10 @@ import {
 import { IStorage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, asc, sum, sql, isNull } from "drizzle-orm";
+import session from "express-session"; // From javascript_auth_all_persistance blueprint
+import createMemoryStore from "memorystore"; // From javascript_auth_all_persistance blueprint
+
+const MemoryStore = createMemoryStore(session);
 
 // Utility functions for type conversion
 const toNum = (value: string | number | null): number => {
@@ -34,6 +38,16 @@ const todayRange = () => {
 };
 
 export class SqliteStorage implements IStorage {
+  // Session store (from javascript_auth_all_persistance blueprint)
+  public sessionStore: session.SessionStore;
+
+  constructor() {
+    // Initialize session store (from javascript_auth_all_persistance blueprint)
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // 24 hours
+    });
+  }
+
   // Users
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -48,6 +62,11 @@ export class SqliteStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const [created] = await db.insert(users).values(user).returning();
     return created;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db.update(users).set(user).where(eq(users.id, id)).returning();
+    return updated;
   }
 
   // Ingredients
