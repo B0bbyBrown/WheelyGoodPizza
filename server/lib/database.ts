@@ -1,15 +1,16 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import pg from 'pg';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import * as schema from '../../shared/schema.js';
+import path from 'path';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required');
-}
+// Create SQLite database file in the project root
+const dbPath = path.join(process.cwd(), 'pizza-truck.db');
 
-// Create PostgreSQL pool for better connection management
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Create the SQLite database connection
+const sqlite = new Database(dbPath);
+
+// Enable foreign keys for SQLite (important for referential integrity)
+sqlite.pragma('foreign_keys = ON');
 
 // Create the database connection
-export const db = drizzle(pool, { schema });
+export const db = drizzle(sqlite, { schema });
