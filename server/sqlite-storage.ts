@@ -158,6 +158,7 @@ export class SqliteStorage implements IStorage {
   // Purchases (transaction)
   async createPurchase(purchase: NewPurchase): Promise<Purchase> {
     const createPurchaseTransaction = db.transaction((tx, purchase: NewPurchase) => {
+      
       // Create the purchase record
       const created = tx.insert(purchases).values({
         supplierId: purchase.supplierId || null,

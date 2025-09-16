@@ -32,49 +32,58 @@ export async function seed() {
       console.log("Cashier user already exists:", cashierUser.email);
     }
 
-    // Create supplier
-    const supplier = await storage.createSupplier({
-      name: "FreshCo",
-      phone: "+1-555-0123",
-      email: "orders@freshco.com",
-    });
-    console.log("Created supplier:", supplier.name);
+    // Create supplier (idempotent)
+    let supplier;
+    try {
+      supplier = await storage.createSupplier({
+        name: "FreshCo",
+        phone: "+1-555-0123",
+        email: "orders@freshco.com",
+      });
+      console.log("Created supplier:", supplier.name);
+    } catch (error) {
+      // If supplier already exists, fetch it
+      const suppliers = await storage.getSuppliers();
+      supplier = suppliers.find(s => s.name === "FreshCo");
+      if (!supplier) throw error; // Re-throw if it's not a duplicate issue
+      console.log("Supplier already exists:", supplier.name);
+    }
 
     // Create ingredients
     const flour = await storage.createIngredient({
       name: "Flour",
       unit: "kg",
-      lowStockLevel: "5.0",
+      lowStockLevel: 5.0,
     });
 
     const tomatoSauce = await storage.createIngredient({
       name: "Tomato Sauce",
       unit: "ml",
-      lowStockLevel: "1000.0",
+      lowStockLevel: 1000.0,
     });
 
     const mozzarella = await storage.createIngredient({
       name: "Mozzarella Cheese",
       unit: "g",
-      lowStockLevel: "500.0",
+      lowStockLevel: 500.0,
     });
 
     const basil = await storage.createIngredient({
       name: "Basil",
       unit: "g",
-      lowStockLevel: "100.0",
+      lowStockLevel: 100.0,
     });
 
     const oliveOil = await storage.createIngredient({
       name: "Olive Oil",
       unit: "ml",
-      lowStockLevel: "500.0",
+      lowStockLevel: 500.0,
     });
 
     const softDrink = await storage.createIngredient({
       name: "Soft Drink Can",
       unit: "unit",
-      lowStockLevel: "12.0",
+      lowStockLevel: 12.0,
     });
 
     console.log("Created ingredients");
@@ -122,21 +131,21 @@ export async function seed() {
     const margherita = await storage.createProduct({
       name: "Margherita Pizza",
       sku: "PIZ-MARG",
-      price: "90.00",
+      price: 90.00,
       active: true,
     });
 
     const pepperoni = await storage.createProduct({
       name: "Pepperoni Pizza",
       sku: "PIZ-PEP",
-      price: "95.00",
+      price: 95.00,
       active: true,
     });
 
     const coke = await storage.createProduct({
       name: "Coke 330ml",
       sku: "DRK-COKE",
-      price: "20.00",
+      price: 20.00,
       active: true,
     });
 
@@ -146,63 +155,63 @@ export async function seed() {
     await storage.createRecipeItem({
       productId: margherita.id,
       ingredientId: flour.id,
-      quantity: "0.25",
+      quantity: 0.25,
     });
 
     await storage.createRecipeItem({
       productId: margherita.id,
       ingredientId: tomatoSauce.id,
-      quantity: "120.0",
+      quantity: 120.0,
     });
 
     await storage.createRecipeItem({
       productId: margherita.id,
       ingredientId: mozzarella.id,
-      quantity: "150.0",
+      quantity: 150.0,
     });
 
     await storage.createRecipeItem({
       productId: margherita.id,
       ingredientId: basil.id,
-      quantity: "2.0",
+      quantity: 2.0,
     });
 
     await storage.createRecipeItem({
       productId: margherita.id,
       ingredientId: oliveOil.id,
-      quantity: "5.0",
+      quantity: 5.0,
     });
 
     // Pepperoni pizza recipe (same as margherita for simplicity)
     await storage.createRecipeItem({
       productId: pepperoni.id,
       ingredientId: flour.id,
-      quantity: "0.25",
+      quantity: 0.25,
     });
 
     await storage.createRecipeItem({
       productId: pepperoni.id,
       ingredientId: tomatoSauce.id,
-      quantity: "120.0",
+      quantity: 120.0,
     });
 
     await storage.createRecipeItem({
       productId: pepperoni.id,
       ingredientId: mozzarella.id,
-      quantity: "150.0",
+      quantity: 150.0,
     });
 
     await storage.createRecipeItem({
       productId: pepperoni.id,
       ingredientId: oliveOil.id,
-      quantity: "5.0",
+      quantity: 5.0,
     });
 
     // Coke recipe
     await storage.createRecipeItem({
       productId: coke.id,
       ingredientId: softDrink.id,
-      quantity: "1.0",
+      quantity: 1.0,
     });
 
     console.log("Created recipes");
@@ -210,7 +219,7 @@ export async function seed() {
     // Open a cash session
     const session = await storage.openCashSession({
       openedBy: adminUser.id,
-      openingFloat: "200.00",
+      openingFloat: 200.00,
       notes: "Morning shift start",
     });
     console.log("Opened cash session");
@@ -239,13 +248,13 @@ export async function seed() {
     // Create some expenses
     await storage.createExpense({
       label: "Truck fuel",
-      amount: "85.00",
+      amount: 85.00,
       paidVia: "CASH",
     });
 
     await storage.createExpense({
       label: "Napkins and utensils",
-      amount: "45.00",
+      amount: 45.00,
       paidVia: "CARD",
     });
 
@@ -267,3 +276,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   seed();
 }
 
+
+    // Create more suppliers
