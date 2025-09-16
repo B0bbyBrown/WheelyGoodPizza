@@ -372,3 +372,20 @@ Contributions are welcome! Please read the contributing guidelines before submit
 ---
 
 *Built with ❤️ for food truck entrepreneurs*
+
+---
+
+## Full Documentation
+
+See the modular docs under `docs/`.
+
+- Start here: `docs/README.md`
+- End-to-end guide: `docs/end-to-end.md`
+- Architecture: `docs/architecture.md`
+- API: `docs/api.md`
+- Frontend: `docs/frontend.md`
+- Backend: `docs/backend.md`
+- Database: `docs/database.md`
+- Security: `docs/security.md`
+- Operations: `docs/operations.md`
+- Roadmap: `docs/roadmap.md`

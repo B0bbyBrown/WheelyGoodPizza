@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -119,12 +120,17 @@ export default function Products() {
       return;
     }
 
-    const validRecipeItems = recipeItems.filter(item => item.ingredientId && item.quantity);
+    const validRecipeItems = recipeItems
+      .filter(item => item.ingredientId && item.quantity)
+      .map(item => ({
+        ingredientId: item.ingredientId,
+        quantity: String(parseFloat(item.quantity)),
+      }));
 
     createProductMutation.mutate({
       name: productName,
       sku: productSku,
-      price: productPrice,
+      price: String(parseFloat(productPrice)),
       active: productActive,
       recipe: validRecipeItems,
     });
@@ -173,6 +179,9 @@ export default function Products() {
           <DialogContent className="max-w-2xl" data-testid="create-product-dialog">
             <DialogHeader>
               <DialogTitle>Create New Product</DialogTitle>
+              <DialogDescription>
+                Fill out product details and optional recipe items. Fields marked * are required.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
               {/* Basic Product Info */}
@@ -369,6 +378,9 @@ export default function Products() {
             <DialogTitle>
               Recipe: {selectedProduct?.name}
             </DialogTitle>
+            <DialogDescription>
+              View the ingredients and quantities used for this product.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

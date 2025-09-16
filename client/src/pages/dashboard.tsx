@@ -22,6 +22,8 @@ import {
   getRecentActivity 
 } from "@/lib/api";
 import { Link } from "wouter";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 export default function Dashboard() {
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -43,6 +45,73 @@ export default function Dashboard() {
     queryKey: ["/api/reports/activity"],
     queryFn: () => getRecentActivity(5),
   });
+
+  // Compute yesterday range for comparisons
+  const today = new Date();
+  const startOfToday = new Date(today);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(today);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const endOfYesterday = new Date(endOfToday);
+  endOfYesterday.setDate(endOfYesterday.getDate() - 1);
+
+  const { data: yesterdaySales = [] } = useQuery({
+    queryKey: ["/api/sales", startOfYesterday.toISOString(), endOfYesterday.toISOString()],
+    queryFn: () => getSales(startOfYesterday.toISOString().split('T')[0], endOfYesterday.toISOString().split('T')[0]),
+  });
+
+  const yesterdayRevenue = Array.isArray(yesterdaySales)
+    ? yesterdaySales.reduce((sum: number, s: any) => sum + parseFloat(s.total), 0)
+    : 0;
+  const yesterdayCogs = Array.isArray(yesterdaySales)
+    ? yesterdaySales.reduce((sum: number, s: any) => sum + parseFloat(s.cogs), 0)
+    : 0;
+  const yesterdayMarginPct = yesterdayRevenue > 0 ? ((yesterdayRevenue - yesterdayCogs) / yesterdayRevenue) * 100 : 0;
+
+  const pctChange = (todayValue: number, yesterdayValue: number) => {
+    if (yesterdayValue === 0) return todayValue > 0 ? 100 : 0;
+    return ((todayValue - yesterdayValue) / yesterdayValue) * 100;
+  };
+
+  const todayRevenueNum = overview ? parseFloat(overview.revenue) : 0;
+  const todayMarginPct = overview ? parseFloat(overview.grossMargin) : 0;
+  const revenueChangePct = pctChange(todayRevenueNum, yesterdayRevenue);
+  const marginChangePct = pctChange(todayMarginPct, yesterdayMarginPct);
+
+  // Build last 7 days revenue series using /api/sales
+  const startOfWindow = new Date(startOfToday);
+  startOfWindow.setDate(startOfWindow.getDate() - 6);
+
+  const { data: windowSales = [], isLoading: salesTrendLoading } = useQuery({
+    queryKey: ["/api/sales", startOfWindow.toISOString(), endOfToday.toISOString()],
+    queryFn: () => getSales(startOfWindow.toISOString().split('T')[0], endOfToday.toISOString().split('T')[0]),
+  });
+
+  const dayKey = (d: Date) => d.toISOString().split('T')[0];
+  const labels = Array.from({ length: 7 }).map((_, idx) => {
+    const d = new Date(startOfWindow);
+    d.setDate(startOfWindow.getDate() + idx);
+    return new Date(d);
+  });
+  const revenueByDay = new Map<string, number>();
+  labels.forEach(d => revenueByDay.set(dayKey(d), 0));
+  if (Array.isArray(windowSales)) {
+    for (const sale of windowSales as any[]) {
+      const created = new Date(sale.createdAt);
+      const key = dayKey(created);
+      if (revenueByDay.has(key)) {
+        revenueByDay.set(key, (revenueByDay.get(key) || 0) + parseFloat(sale.total));
+      }
+    }
+  }
+  const salesTrendData = labels.map(d => ({
+    date: d,
+    label: d.toLocaleDateString(undefined, { weekday: 'short' }),
+    revenue: revenueByDay.get(dayKey(d)) || 0,
+  }));
 
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -74,7 +143,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-xs text-green-600 mt-1">
                   <TrendingUp className="inline h-3 w-3 mr-1" />
-                  +12% vs yesterday
+                  {overviewLoading ? "" : `${revenueChangePct >= 0 ? "+" : ""}${revenueChangePct.toFixed(1)}% vs yesterday`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -116,7 +185,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-xs text-green-600 mt-1">
                   <TrendingUp className="inline h-3 w-3 mr-1" />
-                  +2.3% vs yesterday
+                  {overviewLoading ? "" : `${marginChangePct >= 0 ? "+" : ""}${marginChangePct.toFixed(1)}% vs yesterday`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -347,7 +416,7 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Sales Chart Placeholder */}
+      {/* Sales Trend (Last 7 Days) */}
       <Card data-testid="sales-chart-card">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -359,14 +428,53 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-64 bg-muted/50 rounded-lg flex items-center justify-center" data-testid="chart-placeholder">
-            <div className="text-center">
-              <TrendingUp className="h-12 w-12 text-muted-foreground mb-4 mx-auto" />
-              <p className="text-muted-foreground">Chart visualization will be implemented here</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Integration with Chart.js or similar charting library
-              </p>
-            </div>
+          <div className="h-64">
+            {salesTrendLoading ? (
+              <div className="h-full bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground">
+                Loading...
+              </div>
+            ) : (
+              <ChartContainer
+                config={{ revenue: { label: "Revenue", color: "hsl(var(--primary))" } }}
+                className="h-full"
+              >
+                <AreaChart data={salesTrendData} margin={{ left: 12, right: 12, top: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    width={56}
+                    tickFormatter={(v) => `$${Math.round(v)}`}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dot" />}
+                  />
+                  <Area
+                    dataKey="revenue"
+                    type="monotone"
+                    fill="url(#fillRevenue)"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 3 }}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </div>
         </CardContent>
       </Card>
