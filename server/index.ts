@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import net from "net";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { seed } from "./seed";
@@ -74,12 +75,49 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
+  // Serve the app on the port specified in the environment variable PORT.
+  // In development, if the preferred port is taken, automatically fall back
+  // to the next available port. In production, we strictly use the provided port.
+
+  async function isPortAvailable(portToCheck: number): Promise<boolean> {
+    return await new Promise((resolve) => {
+      const tester = net
+        .createServer()
+        .once("error", () => resolve(false))
+        .once("listening", () => {
+          tester.close(() => resolve(true));
+        })
+        .listen(portToCheck, "0.0.0.0");
+    });
+  }
+
+  async function findAvailablePort(startPort: number, maxAttempts = 32): Promise<number> {
+    for (let candidate = startPort; candidate < startPort + maxAttempts; candidate++) {
+      // eslint-disable-next-line no-await-in-loop
+      if (await isPortAvailable(candidate)) return candidate;
+    }
+    // As a last resort, ask the OS for a random free port
+    return await new Promise<number>((resolve) => {
+      const tempServer = net.createServer();
+      tempServer.listen(0, "0.0.0.0", () => {
+        const address = tempServer.address();
+        const resolved = typeof address === "object" && address ? address.port : startPort;
+        tempServer.close(() => resolve(resolved));
+      });
+    });
+  }
+
+  const preferredPort = parseInt(process.env.PORT || '5000', 10);
+  const isDevelopment = app.get("env") === "development";
+  const chosenPort = isDevelopment
+    ? await findAvailablePort(preferredPort)
+    : preferredPort;
+
+  if (isDevelopment && chosenPort !== preferredPort) {
+    log(`preferred port ${preferredPort} in use, falling back to ${chosenPort}`);
+  }
+
+  server.listen(chosenPort, "0.0.0.0", () => {
+    log(`serving on port ${chosenPort}`);
   });
 })();
