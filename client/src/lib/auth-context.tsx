@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from './supabase';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { User } from '@shared/schema';
 
 interface AuthContextType {
-  user: AppUser | null;
+  user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -27,96 +27,110 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-
-  async function getProfile(userId: string): Promise<AppUser | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id,email,name,role')
-      .eq('id', userId)
-      .single();
-    if (error) return null;
-    return data as AppUser;
-  }
-
-  async function ensureProfile(userId: string, email: string, name?: string, role: string = 'CASHIER') {
-    const existing = await getProfile(userId);
-    if (existing) return existing;
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert({ id: userId, email, name: name || email.split('@')[0], role })
-      .select('id,email,name,role')
-      .single();
-    if (error) return null;
-    return data as AppUser;
-  }
-
-  useEffect(() => {
-    // Initial load
-    (async () => {
-      setIsAuthLoading(true);
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        const profile = await ensureProfile(data.user.id, data.user.email || '');
-        setUser(profile);
-      } else {
-        setUser(null);
+  
+  // Check if user is logged in
+  const { data: user, isLoading } = useQuery<User | null>({
+    queryKey: ['/api/user'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/user', { credentials: 'include' });
+        if (res.ok) {
+          return res.json();
+        }
+        return null;
+      } catch (error) {
+        return null;
       }
-      setIsAuthLoading(false);
-    })();
+    },
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-    // Listen for auth state changes
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const profile = await ensureProfile(session.user.id, session.user.email || '');
-        setUser(profile);
-      } else {
-        setUser(null);
-        queryClient.clear();
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Login failed');
       }
-    });
-    return () => {
-      sub.subscription.unsubscribe();
-    };
-  }, [queryClient]);
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['/api/user'], data);
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async ({ email, password, name, role }: { 
+      email: string; 
+      password: string; 
+      name: string; 
+      role?: string 
+    }) => {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, name, role }),
+      });
+      
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Registration failed');
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['/api/user'], data);
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error('Logout failed');
+      }
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['/api/user'], null);
+      queryClient.clear(); // Clear all cached data
+    },
+  });
 
   const login = async (email: string, password: string) => {
-    setIsAuthLoading(true);
-    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
-    const profile = await ensureProfile(data.user.id, email);
-    setUser(profile);
-    setIsAuthLoading(false);
+    await loginMutation.mutateAsync({ email, password });
   };
 
   const register = async (email: string, password: string, name: string, role?: string) => {
-    setIsAuthLoading(true);
-    const { error, data } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(error.message);
-    // If email confirmations are disabled, a session/user is available now
-    if (data.user) {
-      const profile = await ensureProfile(data.user.id, email, name, role || 'CASHIER');
-      setUser(profile);
-    }
-    setIsAuthLoading(false);
+    await registerMutation.mutateAsync({ email, password, name, role });
   };
 
   const logout = async () => {
-    setIsAuthLoading(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) throw new Error(error.message);
-    setUser(null);
-    queryClient.clear();
-    setIsAuthLoading(false);
+    await logoutMutation.mutateAsync();
   };
 
   const isAuthenticated = !!user;
+  const isAuthLoading = isLoading || loginMutation.isPending || registerMutation.isPending || logoutMutation.isPending;
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: user || null,
         login,
         register,
         logout,
@@ -127,12 +141,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-// Local user shape stored in profiles
-export interface AppUser {
-  id: string;
-  email: string;
-  name: string;
-  role: 'ADMIN' | 'CASHIER' | 'KITCHEN' | string;
 }

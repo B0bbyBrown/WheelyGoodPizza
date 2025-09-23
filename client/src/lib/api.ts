@@ -211,20 +211,10 @@ export async function adjustStock(data: any) {
   const quantityNum = Number.parseFloat(String(data.quantity));
   if (Number.isNaN(quantityNum)) throw new Error("Invalid quantity");
 
-  // Prefer RPC that also records a movement log; fallback to simple increment
-  let { error } = await supabase.rpc("record_inventory_adjustment", {
+  const { error } = await supabase.rpc("increment_inventory_qty", {
     p_item_id: data.ingredientId,
     p_delta: quantityNum,
-    p_note: data.note || null,
   });
-
-  if (error) {
-    const legacy = await supabase.rpc("increment_inventory_qty", {
-      p_item_id: data.ingredientId,
-      p_delta: quantityNum,
-    });
-    error = legacy.error || null;
-  }
 
   // Fallback: direct update if RPC not available
   if (error) {
@@ -246,30 +236,15 @@ export async function adjustStock(data: any) {
 }
 
 export async function getStockMovements(ingredientId?: string) {
-  let query = supabase
-    .from("inventory_movements")
-    .select("id,ingredient_id,kind,quantity,note,created_at")
-    .order("created_at", { ascending: false });
-  if (ingredientId) {
-    query = query.eq("ingredient_id", ingredientId);
-  }
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    ingredientId: row.ingredient_id,
-    kind: row.kind,
-    quantity: String(row.quantity),
-    note: row.note || null,
-    createdAt: row.created_at,
-  }));
+  // Not implemented against Supabase yet
+  return [] as any[];
 }
 
 // Sales
 export async function getSales(from?: string, to?: string) {
   let query = supabase
     .from("orders")
-    .select("id,total_cents,cogs_cents,session_id,payment_method,created_at")
+    .select("id,total_cents,payment_method,created_at")
     .order("created_at", { ascending: false });
   if (from && to) {
     query = query
@@ -281,9 +256,9 @@ export async function getSales(from?: string, to?: string) {
   return (data || []).map((row: any) => ({
     id: row.id,
     total: centsToDollars(row.total_cents),
-    cogs: centsToDollars(row.cogs_cents || 0),
+    cogs: "0.00",
     paymentType: (row.payment_method || "OTHER").toUpperCase(),
-    sessionId: row.session_id || null,
+    sessionId: null,
     createdAt: row.created_at,
   }));
 }
@@ -297,7 +272,6 @@ export async function createSale(data: any) {
   const { data: result, error } = await supabase.rpc("create_pos_order", {
     p_items: items,
     p_payment_method: data.paymentType || "CASH",
-    p_session_id: data.sessionId || null,
   });
   if (error) throw new Error(error.message);
   const row = Array.isArray(result) ? result[0] : result;
@@ -394,35 +368,11 @@ export async function closeCashSession(sessionId: string, data: any) {
 
 // Expenses
 export async function getExpenses() {
-  const { data, error } = await supabase
-    .from("expenses")
-    .select("id,label,amount_cents,paid_via,created_at")
-    .order("created_at", { ascending: false });
-  if (error) {
-    return [] as any[];
-  }
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    label: row.label,
-    amount: centsToDollars(row.amount_cents || 0),
-    paidVia: (row.paid_via || "OTHER").toUpperCase(),
-    createdAt: row.created_at,
-  }));
+  return [] as any[];
 }
 
 export async function createExpense(data: any) {
-  const amountCents = dollarsToCents(data.amount);
-  const { data: created, error } = await supabase
-    .from("expenses")
-    .insert({
-      label: data.label,
-      amount_cents: amountCents,
-      paid_via: data.paidVia || "OTHER",
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  return created;
+  throw new Error("Expenses are not configured in Supabase yet.");
 }
 
 // Reports
@@ -434,12 +384,12 @@ export async function getOverview() {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("total_cents,cogs_cents")
+    .select("total_cents")
     .gte("created_at", start.toISOString())
     .lte("created_at", end.toISOString());
   if (error) throw new Error(error.message);
   const revenueCents = (data || []).reduce((sum: number, r: any) => sum + (r.total_cents || 0), 0);
-  const cogsCents = (data || []).reduce((sum: number, r: any) => sum + (r.cogs_cents || 0), 0);
+  const cogsCents = 0;
   return {
     revenue: centsToDollars(revenueCents),
     cogs: centsToDollars(cogsCents),
