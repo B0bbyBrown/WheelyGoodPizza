@@ -17,6 +17,7 @@
 **Solutions Applied**:
 
 - ✅ Added PKCE flow (`flowType: 'pkce'`) for better Apple device compatibility
+- ✅ Implemented custom storage handlers with fallback for localStorage issues
 - ✅ Added timeout handling for network requests (10-second timeout)
 - ✅ Reduced real-time events frequency for Apple devices
 
