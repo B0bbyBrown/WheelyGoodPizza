@@ -3,9 +3,10 @@
 Base URL: `/api`
 
 Auth
-- POST `/auth/login`
-- GET `/me`
-- POST `/logout`
+- POST `/api/register`
+- POST `/api/login`
+- GET `/api/user`
+- POST `/api/logout`
 
 Inventory
 - GET `/ingredients`
@@ -14,6 +15,10 @@ Inventory
 - GET `/stock/low`
 - POST `/stock/adjust`
 - GET `/stock/movements?ingredientId`
+
+Suppliers
+- GET `/suppliers`
+- POST `/suppliers`
 
 Products & Recipes
 - GET `/products`
@@ -27,6 +32,7 @@ Purchases
 Sales & Sessions
 - GET `/sales?from&to`
 - POST `/sales`
+- GET `/sales/:id/items`
 - GET `/sessions`
 - GET `/sessions/active`
 - POST `/sessions/open`

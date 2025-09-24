@@ -12,10 +12,11 @@ Structure
 
 State & Data
 - TanStack Query manages server state.
-- `client/src/lib/api.ts` wraps calls to `/api`.
+- `client/src/lib/api.ts` wraps calls to `/api` via `apiRequest`.
+- `client/src/lib/supabase.ts` sets up the Supabase client, but API calls are routed through the Express backend, not directly to Supabase from the client.
 
 Styling
-- Tailwind with shadcn tokens. CSS Modules planned in `roadmap.md`.
+- Tailwind with shadcn tokens. A migration to CSS Modules is noted in `roadmap.md`.
 
 Routing
 - Wouter for lightweight routing.
