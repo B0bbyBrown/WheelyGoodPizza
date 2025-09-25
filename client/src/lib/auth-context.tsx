@@ -188,11 +188,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
-    await logoutMutation.mutateAsync();
+    setIsAuthLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    queryClient.clear();
+    setIsAuthLoading(false);
   };
 
   const isAuthenticated = !!user;
-  const isAuthLoading = isLoading || loginMutation.isPending || registerMutation.isPending || logoutMutation.isPending;
 
   return (
     <AuthContext.Provider
