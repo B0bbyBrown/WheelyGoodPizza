@@ -14,6 +14,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -157,7 +158,7 @@ export default function Inventory() {
     createIngredientMutation.mutate({
       name: newIngredientName,
       unit: newIngredientUnit,
-      lowStockLevel: newIngredientLowStock || null,
+      low_stock_level: newIngredientLowStock ? parseFloat(newIngredientLowStock) : null,
     });
   };
 
@@ -193,6 +194,7 @@ export default function Inventory() {
             <DialogContent data-testid="adjustment-dialog">
               <DialogHeader>
                 <DialogTitle>Stock Adjustment</DialogTitle>
+                <DialogDescription>Adjust the stock level for an ingredient by adding or removing quantity.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
@@ -254,6 +256,7 @@ export default function Inventory() {
             <DialogContent data-testid="add-ingredient-dialog">
               <DialogHeader>
                 <DialogTitle>Add New Ingredient</DialogTitle>
+                <DialogDescription>Enter the details for the new ingredient to track in inventory.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
