@@ -12,27 +12,48 @@ export default defineConfig({
     process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
+            m.cartographer()
           ),
           await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
+            m.devBanner()
           ),
         ]
       : []),
   ],
   resolve: {
     alias: {
-      "@": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "client", "src"),
-      "@shared": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "shared"),
-      "@assets": path.resolve(fileURLToPath(new URL(".", import.meta.url)), "attached_assets"),
+      "@": path.resolve(
+        fileURLToPath(new URL(".", import.meta.url)),
+        "client",
+        "src"
+      ),
+      "@shared": path.resolve(
+        fileURLToPath(new URL(".", import.meta.url)),
+        "shared"
+      ),
+      "@assets": path.resolve(
+        fileURLToPath(new URL(".", import.meta.url)),
+        "attached_assets"
+      ),
     },
   },
   root: path.resolve(fileURLToPath(new URL(".", import.meta.url)), "client"),
   build: {
-    outDir: path.resolve(fileURLToPath(new URL(".", import.meta.url)), "dist/public"),
+    outDir: path.resolve(
+      fileURLToPath(new URL(".", import.meta.url)),
+      "dist/public"
+    ),
     emptyOutDir: true,
   },
   server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:5082",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, "/api"),
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

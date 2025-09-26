@@ -4,16 +4,34 @@ const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const text = await res.text();
+    let errorMessage = text;
+    try {
+      const json = JSON.parse(text);
+      errorMessage = json.error;
+      if (json.details) {
+        errorMessage +=
+          ": " +
+          (typeof json.details === "string"
+            ? json.details
+            : JSON.stringify(json.details));
+      }
+    } catch (e) {
+      // If parsing fails, use the raw text
+    }
+    throw new Error(`${res.status}: ${errorMessage}`);
   }
 }
 
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown | undefined
 ): Promise<Response> {
+  if (data) {
+    console.log(`${method} ${url} request:`, JSON.stringify(data, null, 2));
+  }
+
   const res = await fetch(`${API_BASE}${url}`, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -21,8 +39,31 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
-  return res;
+  const responseText = await res.text();
+  let responseData;
+  try {
+    responseData = JSON.parse(responseText);
+    console.log(`${method} ${url} response:`, responseData);
+  } catch (e) {
+    console.log(`${method} ${url} response (text):`, responseText);
+    responseData = responseText;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      typeof responseData === "object" && responseData.error
+        ? responseData.error +
+          (responseData.details
+            ? `: ${JSON.stringify(responseData.details)}`
+            : "")
+        : `${res.status}: ${responseText}`
+    );
+  }
+
+  return new Response(JSON.stringify(responseData), {
+    status: res.status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -33,7 +74,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     // Use the custom apiRequest if available (set by setCurrentUser)
     const requestFn = (window as any).apiRequest || fetch;
-    
+
     let res: Response;
     if (requestFn === fetch) {
       const url = `${API_BASE}${queryKey.join("/") as string}`;
@@ -42,7 +83,10 @@ export const getQueryFn: <T>(options: {
       });
     } else {
       // Use the authenticated apiRequest function
-      res = await requestFn("GET", `${API_BASE}${queryKey.join("/") as string}`);
+      res = await requestFn(
+        "GET",
+        `${API_BASE}${queryKey.join("/") as string}`
+      );
     }
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

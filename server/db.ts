@@ -1,10 +1,10 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import Database from "better-sqlite3";
 import * as schema from "@shared/schema";
-import path from 'path';
+import path from "path";
 
 // Create SQLite database file in the project root
-const dbPath = path.join(process.cwd(), 'pizza-truck.db');
+const dbPath = path.join(process.cwd(), "pizza-truck.db");
 
 console.log(`🗄️ Initializing SQLite database at: ${dbPath}`);
 
@@ -12,7 +12,34 @@ console.log(`🗄️ Initializing SQLite database at: ${dbPath}`);
 export const sqlite = new Database(dbPath);
 
 // Enable foreign keys for SQLite (important for referential integrity)
-sqlite.pragma('foreign_keys = ON');
+sqlite.pragma("foreign_keys = ON");
+
+// Only drop tables if RESET_DB environment variable is set
+if (process.env.RESET_DB === "true") {
+  try {
+    console.log("🗑️ Resetting database...");
+    sqlite.exec(`
+      DROP TABLE IF EXISTS session_inventory_snapshots;
+      DROP TABLE IF EXISTS sale_items;
+      DROP TABLE IF EXISTS sales;
+      DROP TABLE IF EXISTS cash_sessions;
+      DROP TABLE IF EXISTS stock_movements;
+      DROP TABLE IF EXISTS recipe_items;
+      DROP TABLE IF EXISTS purchase_items;
+      DROP TABLE IF EXISTS purchases;
+      DROP TABLE IF EXISTS inventory_lots;
+      DROP TABLE IF EXISTS products;
+      DROP TABLE IF EXISTS ingredients;
+      DROP TABLE IF EXISTS suppliers;
+      DROP TABLE IF EXISTS expenses;
+      DROP TABLE IF EXISTS users;
+    `);
+    console.log("✅ Dropped all existing tables");
+  } catch (error) {
+    console.error("❌ Failed to drop tables:", error);
+    throw error;
+  }
+}
 
 // Create the Drizzle database instance
 export const db = drizzle(sqlite, { schema });
@@ -136,6 +163,15 @@ try {
       label TEXT NOT NULL,
       amount REAL NOT NULL,
       paid_via TEXT NOT NULL CHECK(paid_via IN ('CASH', 'CARD', 'OTHER')),
+      created_at INTEGER DEFAULT (unixepoch()) NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS session_inventory_snapshots (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      session_id TEXT NOT NULL REFERENCES cash_sessions(id),
+      ingredient_id TEXT NOT NULL REFERENCES ingredients(id),
+      quantity REAL NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('OPENING', 'CLOSING')),
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL
     );
   `);

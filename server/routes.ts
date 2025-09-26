@@ -1,58 +1,44 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth } from "./auth"; // From javascript_auth_all_persistance blueprint
-import { 
-  insertIngredientSchema, insertSupplierSchema, insertProductSchema,
-  newPurchaseSchema, newSaleSchema, stockAdjustmentSchema,
-  insertCashSessionSchema, insertExpenseSchema, insertRecipeItemSchema
+import {
+  insertIngredientSchema,
+  insertSupplierSchema,
+  insertProductSchema,
+  newPurchaseSchema,
+  newSaleSchema,
+  stockAdjustmentSchema,
+  insertCashSessionSchema,
+  insertExpenseSchema,
+  insertRecipeItemSchema,
+  openSessionSchema,
+  closeSessionSchema,
 } from "@shared/schema";
 
-// Authentication middleware (from javascript_auth_all_persistance blueprint)
-function requireAuth(req: any, res: any, next: any) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Authentication required" });
+// Helper to get the default admin user ID
+async function getAdminUserId() {
+  const adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
+  if (!adminUser) {
+    throw new Error("Default admin user not found. Please seed the database.");
   }
-  next();
-}
-
-function requireRole(role: string) {
-  return (req: any, res: any, next: any) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-    if (req.user.role !== role && req.user.role !== "ADMIN") {
-      return res.status(403).json({ error: "Insufficient permissions" });
-    }
-    next();
-  };
+  return adminUser.id;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication (from javascript_auth_all_persistance blueprint)
-  setupAuth(app);
-
-  // Demo endpoint to get admin user ID for development
-  app.get("/api/auth/demo-admin", async (req, res) => {
-    try {
-      const adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
-      res.json({ adminId: adminUser?.id || null });
-    } catch (error) {
-      res.json({ adminId: null });
-    }
-  });
-
   // Ingredients
-  app.get("/api/ingredients", requireAuth, async (req, res) => {
+  app.get("/api/ingredients", async (req, res) => {
     try {
+      console.log("📝 Fetching ingredients from SQLite...");
       const ingredients = await storage.getIngredients();
+      console.log(`✅ Found ${ingredients.length} ingredients`);
       res.json(ingredients);
     } catch (error) {
+      console.error("❌ Failed to fetch ingredients:", error);
       res.status(500).json({ error: "Failed to fetch ingredients" });
     }
   });
 
-  app.post("/api/ingredients", requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/ingredients", async (req, res) => {
     try {
       const data = insertIngredientSchema.parse(req.body);
       const ingredient = await storage.createIngredient(data);
@@ -63,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Suppliers
-  app.get("/api/suppliers", requireAuth, async (req, res) => {
+  app.get("/api/suppliers", async (req, res) => {
     try {
       const suppliers = await storage.getSuppliers();
       res.json(suppliers);
@@ -72,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/suppliers", requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/suppliers", async (req, res) => {
     try {
       const data = insertSupplierSchema.parse(req.body);
       const supplier = await storage.createSupplier(data);
@@ -83,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products
-  app.get("/api/products", requireAuth, async (req, res) => {
+  app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getProducts();
       res.json(products);
@@ -92,13 +78,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products", requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/products", async (req, res) => {
     try {
       const { recipe, ...productData } = req.body;
       const data = insertProductSchema.parse(productData);
       const product = await storage.createProduct(data);
 
-      // Add recipe items if provided
       if (recipe && Array.isArray(recipe)) {
         for (const item of recipe) {
           const recipeData = insertRecipeItemSchema.parse({
@@ -116,7 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id/recipe", requireAuth, async (req, res) => {
+  app.get("/api/products/:id/recipe", async (req, res) => {
     try {
       const recipeItems = await storage.getRecipeItems(req.params.id);
       res.json(recipeItems);
@@ -126,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Purchases
-  app.get("/api/purchases", requireAuth, async (req, res) => {
+  app.get("/api/purchases", async (req, res) => {
     try {
       const purchases = await storage.getPurchases();
       res.json(purchases);
@@ -135,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/purchases", requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/purchases", async (req, res) => {
     try {
       const data = newPurchaseSchema.parse(req.body);
       const purchase = await storage.createPurchase(data);
@@ -146,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stock management
-  app.get("/api/stock/current", requireAuth, async (req, res) => {
+  app.get("/api/stock/current", async (req, res) => {
     try {
       const stock = await storage.getCurrentStock();
       res.json(stock);
@@ -155,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stock/low", requireAuth, async (req, res) => {
+  app.get("/api/stock/low", async (req, res) => {
     try {
       const lowStock = await storage.getLowStockIngredients();
       res.json(lowStock);
@@ -164,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/stock/adjust", requireRole("ADMIN"), async (req, res) => {
+  app.post("/api/stock/adjust", async (req, res) => {
     try {
       const data = stockAdjustmentSchema.parse(req.body);
       await storage.adjustStock(data);
@@ -174,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stock/movements", requireAuth, async (req, res) => {
+  app.get("/api/stock/movements", async (req, res) => {
     try {
       const ingredientId = req.query.ingredientId as string;
       const movements = await storage.getStockMovements(ingredientId);
@@ -185,9 +170,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sales
-  app.get("/api/sales", requireAuth, async (req, res) => {
+  app.get("/api/sales", async (req, res) => {
     try {
-      const from = req.query.from ? new Date(req.query.from as string) : undefined;
+      const from = req.query.from
+        ? new Date(req.query.from as string)
+        : undefined;
       const to = req.query.to ? new Date(req.query.to as string) : undefined;
       const sales = await storage.getSales(from, to);
       res.json(sales);
@@ -196,17 +183,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sales", requireAuth, async (req: any, res) => {
+  app.post("/api/sales", async (req: any, res) => {
     try {
+      const adminUserId = await getAdminUserId();
       const data = newSaleSchema.parse(req.body);
-      const sale = await storage.createSale(data, req.user.id);
+      const sale = await storage.createSale(data, adminUserId);
       res.json(sale);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Sale creation failed" });
     }
   });
 
-  app.get("/api/sales/:id/items", requireAuth, async (req, res) => {
+  app.get("/api/sales/:id/items", async (req, res) => {
     try {
       const items = await storage.getSaleItems(req.params.id);
       res.json(items);
@@ -216,54 +204,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cash sessions
-  app.get("/api/sessions", requireAuth, async (req, res) => {
+  app.get("/api/sessions", async (req, res) => {
     try {
+      console.log("📝 Fetching cash sessions from SQLite...");
       const sessions = await storage.getCashSessions();
+      console.log(`✅ Found ${sessions.length} cash sessions`);
       res.json(sessions);
     } catch (error) {
+      console.error("❌ Failed to fetch cash sessions:", error);
       res.status(500).json({ error: "Failed to fetch cash sessions" });
     }
   });
 
-  app.get("/api/sessions/active", requireAuth, async (req, res) => {
+  app.get("/api/sessions/active", async (req, res) => {
     try {
+      console.log("📝 Checking for active cash session in SQLite...");
       const session = await storage.getActiveCashSession();
+      console.log(
+        "✅ Active session status:",
+        session ? "Found" : "None active"
+      );
       res.json(session || null);
     } catch (error) {
+      console.error("❌ Failed to fetch active session:", error);
       res.status(500).json({ error: "Failed to fetch active session" });
     }
   });
 
-  app.post("/api/sessions/open", requireAuth, async (req: any, res) => {
+  app.post("/api/sessions/open", async (req: any, res) => {
     try {
-      const data = insertCashSessionSchema.parse({
-        ...req.body,
-        openedBy: req.user.id,
-      });
+      const adminUserId = await getAdminUserId();
+      console.log(
+        "Opening session with body:",
+        JSON.stringify(req.body, null, 2)
+      );
+
+      // Check for active session
+      const activeSession = await storage.getActiveCashSession();
+      if (activeSession) {
+        res.status(400).json({
+          error: "Cannot open a new session while another session is active",
+        });
+        return;
+      }
+
+      const body = openSessionSchema.parse(req.body);
+      console.log("Parsed session data:", body);
+
+      const data = {
+        openingFloat: body.openingFloat,
+        notes: body.notes || "Session opened",
+        openedBy: adminUserId,
+      };
+
+      console.log("Creating session with data:", data);
       const session = await storage.openCashSession(data);
+      console.log("Session created:", session);
+
+      console.log("Creating inventory snapshots:", body.inventory);
+      await storage.createInventorySnapshots(
+        session.id,
+        body.inventory,
+        "OPENING"
+      );
+      console.log("Inventory snapshots created");
+
       res.json(session);
     } catch (error) {
-      res.status(400).json({ error: "Failed to open cash session" });
+      console.error("Failed to open cash session:", error);
+      if (error.errors) {
+        console.log("Validation error:", error.errors);
+        res
+          .status(400)
+          .json({ error: "Validation failed", details: error.errors });
+      } else if (error.issues) {
+        // Zod validation error
+        console.log("Zod validation error:", error.issues);
+        res
+          .status(400)
+          .json({ error: "Validation failed", details: error.issues });
+      } else {
+        console.log("Other error:", error);
+        res.status(400).json({
+          error: "Failed to open cash session",
+          details: error.message || error,
+        });
+      }
     }
   });
 
-  app.post("/api/sessions/:id/close", requireAuth, async (req: any, res) => {
+  app.post("/api/sessions/:id/close", async (req: any, res) => {
     try {
-      const { closingFloat, notes } = req.body;
+      const adminUserId = await getAdminUserId();
+      const body = closeSessionSchema.parse(req.body);
+
       const session = await storage.closeCashSession(
         req.params.id,
-        closingFloat,
-        notes,
-        req.user.id
+        body.closingFloat,
+        body.notes,
+        adminUserId
       );
+
+      await storage.createInventorySnapshots(
+        session.id,
+        body.inventory,
+        "CLOSING"
+      );
+
       res.json(session);
     } catch (error) {
-      res.status(400).json({ error: "Failed to close cash session" });
+      console.error("Failed to close cash session:", error);
+      res
+        .status(400)
+        .json({ error: "Failed to close cash session", details: error });
     }
   });
 
   // Expenses
-  app.get("/api/expenses", requireAuth, async (req, res) => {
+  app.get("/api/expenses", async (req, res) => {
     try {
       const expenses = await storage.getExpenses();
       res.json(expenses);
@@ -272,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/expenses", requireAuth, async (req, res) => {
+  app.post("/api/expenses", async (req, res) => {
     try {
       const data = insertExpenseSchema.parse(req.body);
       const expense = await storage.createExpense(data);
@@ -283,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reports
-  app.get("/api/reports/overview", requireAuth, async (req, res) => {
+  app.get("/api/reports/overview", async (req, res) => {
     try {
       const kpis = await storage.getTodayKPIs();
       res.json(kpis);
@@ -292,17 +350,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports/top-products", requireAuth, async (req, res) => {
+  app.get("/api/reports/top-products", async (req, res) => {
     try {
-      const from = req.query.from ? new Date(req.query.from as string) : new Date();
+      const from = req.query.from
+        ? new Date(req.query.from as string)
+        : new Date();
       const to = req.query.to ? new Date(req.query.to as string) : new Date();
-      
-      // Set default to today if no dates provided
+
       if (!req.query.from && !req.query.to) {
         from.setHours(0, 0, 0, 0);
         to.setHours(23, 59, 59, 999);
       }
-      
+
       const topProducts = await storage.getTopProducts(from, to);
       res.json(topProducts);
     } catch (error) {
@@ -310,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/reports/activity", requireAuth, async (req, res) => {
+  app.get("/api/reports/activity", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const activity = await storage.getRecentActivity(limit);

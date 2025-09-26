@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,30 +26,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Receipt, 
-  Plus, 
+import {
+  Receipt,
+  Plus,
   DollarSign,
   CreditCard,
   Wallet,
   TrendingUp,
-  Calendar
+  Calendar,
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  getExpenses, 
-  createExpense
-} from "@/lib/api";
+import { getExpenses, createExpense } from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function Expenses() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [expenseLabel, setExpenseLabel] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "OTHER">("CASH");
-  
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "OTHER">(
+    "CASH"
+  );
+
   const { toast } = useToast();
 
   const { data: expenses = [], isLoading: expensesLoading } = useQuery({
@@ -100,33 +100,17 @@ export default function Expenses() {
     });
   };
 
-  const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(num);
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   const getTotalExpenses = () => {
-    return expenses.reduce((total: number, expense: any) => total + parseFloat(expense.amount), 0);
+    return expenses.reduce(
+      (total: number, expense: any) => total + parseFloat(expense.amount),
+      0
+    );
   };
 
   const getTodayExpenses = () => {
     const today = new Date().toDateString();
-    return expenses.filter((expense: any) => 
-      new Date(expense.createdAt).toDateString() === today
+    return expenses.filter(
+      (expense: any) => new Date(expense.createdAt).toDateString() === today
     );
   };
 
@@ -146,15 +130,16 @@ export default function Expenses() {
 
   const expensesByPaymentType = getExpensesByPaymentType();
   const todayExpenses = getTodayExpenses();
-  const todayTotal = todayExpenses.reduce((total: number, expense: any) => 
-    total + parseFloat(expense.amount), 0
+  const todayTotal = todayExpenses.reduce(
+    (total: number, expense: any) => total + parseFloat(expense.amount),
+    0
   );
 
   const getPaymentIcon = (paymentType: string) => {
     switch (paymentType) {
-      case 'CASH':
+      case "CASH":
         return <DollarSign className="h-4 w-4" />;
-      case 'CARD':
+      case "CARD":
         return <CreditCard className="h-4 w-4" />;
       default:
         return <Wallet className="h-4 w-4" />;
@@ -162,12 +147,12 @@ export default function Expenses() {
   };
 
   return (
-    <Layout 
-      title="Expenses" 
-      description="Track and manage business expenses"
-    >
+    <Layout title="Expenses" description="Track and manage business expenses">
       {/* Action Bar */}
-      <div className="flex items-center justify-between mb-6" data-testid="expenses-actions">
+      <div
+        className="flex items-center justify-between mb-6"
+        data-testid="expenses-actions"
+      >
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="add-expense-button">
@@ -205,7 +190,10 @@ export default function Expenses() {
               </div>
               <div>
                 <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={(value: any) => setPaymentMethod(value)}
+                >
                   <SelectTrigger data-testid="payment-method-select">
                     <SelectValue />
                   </SelectTrigger>
@@ -231,13 +219,15 @@ export default function Expenses() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button 
-                onClick={handleCreateExpense} 
+              <Button
+                onClick={handleCreateExpense}
                 disabled={createExpenseMutation.isPending}
                 className="w-full"
                 data-testid="confirm-expense-button"
               >
-                {createExpenseMutation.isPending ? "Recording..." : "Record Expense"}
+                {createExpenseMutation.isPending
+                  ? "Recording..."
+                  : "Record Expense"}
               </Button>
             </div>
           </DialogContent>
@@ -245,13 +235,21 @@ export default function Expenses() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" data-testid="expense-summary-cards">
+      <div
+        className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6"
+        data-testid="expense-summary-cards"
+      >
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Today's Expenses</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="today-expenses">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Today's Expenses
+                </p>
+                <p
+                  className="text-2xl font-bold text-foreground"
+                  data-testid="today-expenses"
+                >
                   {formatCurrency(todayTotal)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -269,8 +267,13 @@ export default function Expenses() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="total-expenses">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Expenses
+                </p>
+                <p
+                  className="text-2xl font-bold text-foreground"
+                  data-testid="total-expenses"
+                >
                   {formatCurrency(getTotalExpenses())}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -288,7 +291,9 @@ export default function Expenses() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Cash Expenses</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Cash Expenses
+                </p>
                 <p className="text-2xl font-bold text-foreground">
                   {formatCurrency(expensesByPaymentType.CASH?.total || 0)}
                 </p>
@@ -307,7 +312,9 @@ export default function Expenses() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Card Expenses</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Card Expenses
+                </p>
                 <p className="text-2xl font-bold text-foreground">
                   {formatCurrency(expensesByPaymentType.CARD?.total || 0)}
                 </p>
@@ -337,7 +344,9 @@ export default function Expenses() {
             <div className="text-center py-12">
               <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No expenses recorded yet</p>
-              <p className="text-sm text-muted-foreground">Start tracking your business expenses</p>
+              <p className="text-sm text-muted-foreground">
+                Start tracking your business expenses
+              </p>
             </div>
           ) : (
             <Table data-testid="expenses-table">
@@ -352,24 +361,36 @@ export default function Expenses() {
               </TableHeader>
               <TableBody>
                 {expenses.map((expense: any, index: number) => (
-                  <TableRow key={expense.id} data-testid={`expense-row-${index}`}>
+                  <TableRow
+                    key={expense.id}
+                    data-testid={`expense-row-${index}`}
+                  >
                     <TableCell>
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
-                        {formatDateTime(expense.createdAt)}
+                        {formatDate(expense.createdAt)}
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium" data-testid={`expense-description-${index}`}>
+                    <TableCell
+                      className="font-medium"
+                      data-testid={`expense-description-${index}`}
+                    >
                       {expense.label}
                     </TableCell>
-                    <TableCell className="font-semibold text-red-600" data-testid={`expense-amount-${index}`}>
+                    <TableCell
+                      className="font-semibold text-red-600"
+                      data-testid={`expense-amount-${index}`}
+                    >
                       -{formatCurrency(expense.amount)}
                     </TableCell>
                     <TableCell>
-                      <Badge 
+                      <Badge
                         variant={
-                          expense.paidVia === 'CASH' ? 'default' : 
-                          expense.paidVia === 'CARD' ? 'secondary' : 'outline'
+                          expense.paidVia === "CASH"
+                            ? "default"
+                            : expense.paidVia === "CARD"
+                            ? "secondary"
+                            : "outline"
                         }
                         className="flex items-center w-fit"
                       >
@@ -379,10 +400,15 @@ export default function Expenses() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {expense.label.toLowerCase().includes('fuel') ? 'Transportation' :
-                         expense.label.toLowerCase().includes('supply') || expense.label.toLowerCase().includes('napkin') ? 'Supplies' :
-                         expense.label.toLowerCase().includes('food') || expense.label.toLowerCase().includes('ingredient') ? 'Food Cost' :
-                         'General'}
+                        {expense.label.toLowerCase().includes("fuel")
+                          ? "Transportation"
+                          : expense.label.toLowerCase().includes("supply") ||
+                            expense.label.toLowerCase().includes("napkin")
+                          ? "Supplies"
+                          : expense.label.toLowerCase().includes("food") ||
+                            expense.label.toLowerCase().includes("ingredient")
+                          ? "Food Cost"
+                          : "General"}
                       </Badge>
                     </TableCell>
                   </TableRow>

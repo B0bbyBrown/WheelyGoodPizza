@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -28,24 +28,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  Utensils, 
-  Plus, 
+import {
+  Utensils,
+  Plus,
   Edit,
   Trash2,
   DollarSign,
-  Package
+  Package,
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  getProducts, 
+import {
+  getProducts,
   createProduct,
   getIngredients,
-  getProductRecipe
+  getProductRecipe,
 } from "@/lib/api";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/format";
 
 interface RecipeItem {
   ingredientId: string;
@@ -56,14 +57,16 @@ export default function Products() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
-  
+
   // Form state
   const [productName, setProductName] = useState("");
   const [productSku, setProductSku] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productActive, setProductActive] = useState(true);
-  const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([{ ingredientId: "", quantity: "" }]);
-  
+  const [recipeItems, setRecipeItems] = useState<RecipeItem[]>([
+    { ingredientId: "", quantity: "" },
+  ]);
+
   const { toast } = useToast();
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -121,8 +124,8 @@ export default function Products() {
     }
 
     const validRecipeItems = recipeItems
-      .filter(item => item.ingredientId && item.quantity)
-      .map(item => ({
+      .filter((item) => item.ingredientId && item.quantity)
+      .map((item) => ({
         ingredientId: item.ingredientId,
         quantity: String(parseFloat(item.quantity)),
       }));
@@ -144,17 +147,14 @@ export default function Products() {
     setRecipeItems(recipeItems.filter((_, i) => i !== index));
   };
 
-  const updateRecipeItem = (index: number, field: keyof RecipeItem, value: string) => {
+  const updateRecipeItem = (
+    index: number,
+    field: keyof RecipeItem,
+    value: string
+  ) => {
     const updated = [...recipeItems];
     updated[index][field] = value;
     setRecipeItems(updated);
-  };
-
-  const formatCurrency = (amount: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(parseFloat(amount));
   };
 
   const viewRecipe = (product: any) => {
@@ -163,12 +163,15 @@ export default function Products() {
   };
 
   return (
-    <Layout 
-      title="Products & Recipes" 
+    <Layout
+      title="Products & Recipes"
       description="Manage your menu items and their ingredient recipes"
     >
       {/* Action Bar */}
-      <div className="flex items-center justify-between mb-6" data-testid="products-actions">
+      <div
+        className="flex items-center justify-between mb-6"
+        data-testid="products-actions"
+      >
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="create-product-button">
@@ -176,11 +179,15 @@ export default function Products() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl" data-testid="create-product-dialog">
+          <DialogContent
+            className="max-w-2xl"
+            data-testid="create-product-dialog"
+          >
             <DialogHeader>
               <DialogTitle>Create New Product</DialogTitle>
               <DialogDescription>
-                Fill out product details and optional recipe items. Fields marked * are required.
+                Fill out product details and optional recipe items. Fields
+                marked * are required.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6">
@@ -235,10 +242,12 @@ export default function Products() {
               {/* Recipe Section */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Recipe (Bill of Materials)</h3>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <h3 className="text-lg font-semibold">
+                    Recipe (Bill of Materials)
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
                     onClick={addRecipeItem}
                     data-testid="add-recipe-item-button"
@@ -247,21 +256,28 @@ export default function Products() {
                     Add Ingredient
                   </Button>
                 </div>
-                
+
                 <div className="space-y-3" data-testid="recipe-items">
                   {recipeItems.map((item, index) => (
                     <div key={index} className="flex items-center space-x-3">
                       <div className="flex-1">
-                        <Select 
-                          value={item.ingredientId} 
-                          onValueChange={(value) => updateRecipeItem(index, "ingredientId", value)}
+                        <Select
+                          value={item.ingredientId}
+                          onValueChange={(value) =>
+                            updateRecipeItem(index, "ingredientId", value)
+                          }
                         >
-                          <SelectTrigger data-testid={`ingredient-select-${index}`}>
+                          <SelectTrigger
+                            data-testid={`ingredient-select-${index}`}
+                          >
                             <SelectValue placeholder="Select ingredient" />
                           </SelectTrigger>
                           <SelectContent>
                             {ingredients.map((ingredient: any) => (
-                              <SelectItem key={ingredient.id} value={ingredient.id}>
+                              <SelectItem
+                                key={ingredient.id}
+                                value={ingredient.id}
+                              >
                                 {ingredient.name} ({ingredient.unit})
                               </SelectItem>
                             ))}
@@ -274,13 +290,15 @@ export default function Products() {
                           step="0.01"
                           min="0"
                           value={item.quantity}
-                          onChange={(e) => updateRecipeItem(index, "quantity", e.target.value)}
+                          onChange={(e) =>
+                            updateRecipeItem(index, "quantity", e.target.value)
+                          }
                           placeholder="Qty"
                           data-testid={`quantity-input-${index}`}
                         />
                       </div>
                       {recipeItems.length > 1 && (
-                        <Button 
+                        <Button
                           type="button"
                           variant="outline"
                           size="sm"
@@ -295,13 +313,15 @@ export default function Products() {
                 </div>
               </div>
 
-              <Button 
-                onClick={handleCreateProduct} 
+              <Button
+                onClick={handleCreateProduct}
                 disabled={createProductMutation.isPending}
                 className="w-full"
                 data-testid="confirm-create-product-button"
               >
-                {createProductMutation.isPending ? "Creating..." : "Create Product"}
+                {createProductMutation.isPending
+                  ? "Creating..."
+                  : "Create Product"}
               </Button>
             </div>
           </DialogContent>
@@ -309,7 +329,10 @@ export default function Products() {
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="products-grid">
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        data-testid="products-grid"
+      >
         {productsLoading ? (
           <div className="col-span-full text-center py-8">
             <p className="text-muted-foreground">Loading products...</p>
@@ -318,18 +341,29 @@ export default function Products() {
           <div className="col-span-full text-center py-12">
             <Utensils className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No products created yet</p>
-            <p className="text-sm text-muted-foreground">Create your first product to get started</p>
+            <p className="text-sm text-muted-foreground">
+              Create your first product to get started
+            </p>
           </div>
         ) : (
           products.map((product: any) => (
-            <Card key={product.id} className="relative" data-testid={`product-card-${product.sku.toLowerCase()}`}>
+            <Card
+              key={product.id}
+              className="relative"
+              data-testid={`product-card-${product.sku.toLowerCase()}`}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg" data-testid={`product-name-${product.sku.toLowerCase()}`}>
+                    <CardTitle
+                      className="text-lg"
+                      data-testid={`product-name-${product.sku.toLowerCase()}`}
+                    >
                       {product.name}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                    <p className="text-sm text-muted-foreground">
+                      SKU: {product.sku}
+                    </p>
                   </div>
                   <Badge variant={product.active ? "default" : "secondary"}>
                     {product.active ? "Active" : "Inactive"}
@@ -340,15 +374,18 @@ export default function Products() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Price</span>
-                    <span className="font-semibold text-lg" data-testid={`product-price-${product.sku.toLowerCase()}`}>
+                    <span
+                      className="font-semibold text-lg"
+                      data-testid={`product-price-${product.sku.toLowerCase()}`}
+                    >
                       {formatCurrency(product.price)}
                     </span>
                   </div>
-                  
+
                   <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="flex-1"
                       onClick={() => viewRecipe(product)}
                       data-testid={`view-recipe-${product.sku.toLowerCase()}`}
@@ -356,8 +393,8 @@ export default function Products() {
                       <Package className="mr-2 h-4 w-4" />
                       View Recipe
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       data-testid={`edit-product-${product.sku.toLowerCase()}`}
                     >
@@ -375,9 +412,7 @@ export default function Products() {
       <Dialog open={isRecipeDialogOpen} onOpenChange={setIsRecipeDialogOpen}>
         <DialogContent data-testid="recipe-view-dialog">
           <DialogHeader>
-            <DialogTitle>
-              Recipe: {selectedProduct?.name}
-            </DialogTitle>
+            <DialogTitle>Recipe: {selectedProduct?.name}</DialogTitle>
             <DialogDescription>
               View the ingredients and quantities used for this product.
             </DialogDescription>
@@ -399,7 +434,9 @@ export default function Products() {
             <div>
               <Label className="text-base font-semibold">Ingredients</Label>
               {productRecipe.length === 0 ? (
-                <p className="text-sm text-muted-foreground mt-2">No recipe items defined</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  No recipe items defined
+                </p>
               ) : (
                 <Table className="mt-2" data-testid="recipe-table">
                   <TableHeader>
@@ -411,11 +448,18 @@ export default function Products() {
                   </TableHeader>
                   <TableBody>
                     {productRecipe.map((item: any, index: number) => {
-                      const ingredient = ingredients.find((ing: any) => ing.id === item.ingredientId);
+                      const ingredient = ingredients.find(
+                        (ing: any) => ing.id === item.ingredientId
+                      );
                       return (
-                        <TableRow key={index} data-testid={`recipe-row-${index}`}>
+                        <TableRow
+                          key={index}
+                          data-testid={`recipe-row-${index}`}
+                        >
                           <TableCell>{ingredient?.name || "Unknown"}</TableCell>
-                          <TableCell>{parseFloat(item.quantity).toFixed(1)}</TableCell>
+                          <TableCell>
+                            {parseFloat(item.quantity).toFixed(1)}
+                          </TableCell>
                           <TableCell>{ingredient?.unit || ""}</TableCell>
                         </TableRow>
                       );

@@ -42,18 +42,11 @@ app.use((req, res, next) => {
 (async () => {
   // Seed the database if no admin user exists
   const existingAdmin = await storage.getUserByEmail("admin@pizzatruck.com");
+  const existingSessions = await storage.getCashSessions();
   if (!existingAdmin) {
     await seed();
   } else {
     log("Seed data already exists, skipping seed process");
-    
-    // Backfill: check if admin has plaintext password and update to hashed
-    if (existingAdmin.password && !existingAdmin.password.includes('.')) {
-      const { hashPassword } = await import("./lib/password");
-      const hashedPassword = await hashPassword("admin123");
-      await storage.updateUser(existingAdmin.id, { password: hashedPassword });
-      log("Backfilled admin user with hashed password");
-    }
   }
 
   const server = await registerRoutes(app);
@@ -91,8 +84,15 @@ app.use((req, res, next) => {
     });
   }
 
-  async function findAvailablePort(startPort: number, maxAttempts = 32): Promise<number> {
-    for (let candidate = startPort; candidate < startPort + maxAttempts; candidate++) {
+  async function findAvailablePort(
+    startPort: number,
+    maxAttempts = 32
+  ): Promise<number> {
+    for (
+      let candidate = startPort;
+      candidate < startPort + maxAttempts;
+      candidate++
+    ) {
       // eslint-disable-next-line no-await-in-loop
       if (await isPortAvailable(candidate)) return candidate;
     }
@@ -101,20 +101,23 @@ app.use((req, res, next) => {
       const tempServer = net.createServer();
       tempServer.listen(0, "0.0.0.0", () => {
         const address = tempServer.address();
-        const resolved = typeof address === "object" && address ? address.port : startPort;
+        const resolved =
+          typeof address === "object" && address ? address.port : startPort;
         tempServer.close(() => resolve(resolved));
       });
     });
   }
 
-  const preferredPort = parseInt(process.env.PORT || '5000', 10);
+  const preferredPort = parseInt(process.env.PORT || "5000", 10);
   const isDevelopment = app.get("env") === "development";
   const chosenPort = isDevelopment
     ? await findAvailablePort(preferredPort)
     : preferredPort;
 
   if (isDevelopment && chosenPort !== preferredPort) {
-    log(`preferred port ${preferredPort} in use, falling back to ${chosenPort}`);
+    log(
+      `preferred port ${preferredPort} in use, falling back to ${chosenPort}`
+    );
   }
 
   server.listen(chosenPort, "0.0.0.0", () => {

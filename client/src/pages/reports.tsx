@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,8 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  BarChart3, 
+import {
+  BarChart3,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -32,18 +32,19 @@ import {
   Filter,
   PizzaIcon,
   PillBottle,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  getOverview, 
-  getTopProducts, 
+import {
+  getOverview,
+  getTopProducts,
   getLowStock,
   getSales,
   getStockMovements,
-  getCurrentStock
+  getCurrentStock,
 } from "@/lib/api";
 import { useState } from "react";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState("today");
@@ -97,8 +98,16 @@ export default function Reports() {
   });
 
   const { data: topProducts = [], isLoading: productsLoading } = useQuery({
-    queryKey: ["/api/reports/top-products", from.toISOString(), to.toISOString()],
-    queryFn: () => getTopProducts(from.toISOString().split('T')[0], to.toISOString().split('T')[0]),
+    queryKey: [
+      "/api/reports/top-products",
+      from.toISOString(),
+      to.toISOString(),
+    ],
+    queryFn: () =>
+      getTopProducts(
+        from.toISOString().split("T")[0],
+        to.toISOString().split("T")[0]
+      ),
   });
 
   const { data: lowStockItems = [] } = useQuery({
@@ -108,7 +117,11 @@ export default function Reports() {
 
   const { data: sales = [] } = useQuery({
     queryKey: ["/api/sales", from.toISOString(), to.toISOString()],
-    queryFn: () => getSales(from.toISOString().split('T')[0], to.toISOString().split('T')[0]),
+    queryFn: () =>
+      getSales(
+        from.toISOString().split("T")[0],
+        to.toISOString().split("T")[0]
+      ),
   });
 
   const { data: stockMovements = [] } = useQuery({
@@ -121,25 +134,9 @@ export default function Reports() {
     queryFn: () => getCurrentStock(),
   });
 
-  const formatCurrency = (amount: string | number) => {
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(num);
-  };
-
   const formatPercentage = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
+    const num = typeof value === "string" ? parseFloat(value) : value;
     return `${num.toFixed(1)}%`;
-  };
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   const getPeriodLabel = () => {
@@ -158,16 +155,26 @@ export default function Reports() {
   };
 
   // Calculate period metrics
-  const periodRevenue = sales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total), 0);
-  const periodCogs = sales.reduce((sum: number, sale: any) => sum + parseFloat(sale.cogs), 0);
-  const periodGrossMargin = periodRevenue > 0 ? ((periodRevenue - periodCogs) / periodRevenue) * 100 : 0;
+  const periodRevenue = sales.reduce(
+    (sum: number, sale: any) => sum + parseFloat(sale.total),
+    0
+  );
+  const periodCogs = sales.reduce(
+    (sum: number, sale: any) => sum + parseFloat(sale.cogs),
+    0
+  );
+  const periodGrossMargin =
+    periodRevenue > 0
+      ? ((periodRevenue - periodCogs) / periodRevenue) * 100
+      : 0;
 
   // Ingredient usage analysis
   const getIngredientUsage = () => {
-    const consumptionMovements = stockMovements.filter((movement: any) => 
-      movement.kind === 'SALE_CONSUME' && 
-      new Date(movement.createdAt) >= from && 
-      new Date(movement.createdAt) <= to
+    const consumptionMovements = stockMovements.filter(
+      (movement: any) =>
+        movement.kind === "SALE_CONSUME" &&
+        new Date(movement.createdAt) >= from &&
+        new Date(movement.createdAt) <= to
     );
 
     const usage = consumptionMovements.reduce((acc: any, movement: any) => {
@@ -184,24 +191,30 @@ export default function Reports() {
       return acc;
     }, {});
 
-    return Object.values(usage).sort((a: any, b: any) => b.totalUsed - a.totalUsed);
+    return Object.values(usage).sort(
+      (a: any, b: any) => b.totalUsed - a.totalUsed
+    );
   };
 
   const ingredientUsage = getIngredientUsage();
 
   const getIngredientName = (ingredientId: string) => {
-    const stockItem = currentStock.find((item: any) => item.ingredientId === ingredientId);
+    const stockItem = currentStock.find(
+      (item: any) => item.ingredientId === ingredientId
+    );
     return stockItem?.ingredientName || "Unknown";
   };
 
   const getIngredientUnit = (ingredientId: string) => {
-    const stockItem = currentStock.find((item: any) => item.ingredientId === ingredientId);
+    const stockItem = currentStock.find(
+      (item: any) => item.ingredientId === ingredientId
+    );
     return stockItem?.unit || "";
   };
 
   return (
-    <Layout 
-      title="Reports & Analytics" 
+    <Layout
+      title="Reports & Analytics"
       description="Detailed reports and business analytics"
     >
       {/* Date Range Filter */}
@@ -229,7 +242,7 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {dateRange === "custom" && (
               <>
                 <div>
@@ -254,7 +267,7 @@ export default function Reports() {
                 </div>
               </>
             )}
-            
+
             <Button variant="outline" data-testid="export-report-button">
               <Download className="mr-2 h-4 w-4" />
               Export Report
@@ -264,13 +277,21 @@ export default function Reports() {
       </Card>
 
       {/* Financial Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" data-testid="financial-overview-cards">
+      <div
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6"
+        data-testid="financial-overview-cards"
+      >
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Period Revenue</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="period-revenue">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Period Revenue
+                </p>
+                <p
+                  className="text-2xl font-bold text-foreground"
+                  data-testid="period-revenue"
+                >
                   {formatCurrency(periodRevenue)}
                 </p>
                 <p className="text-xs text-green-600 mt-1">
@@ -289,12 +310,21 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Period COGS</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="period-cogs">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Period COGS
+                </p>
+                <p
+                  className="text-2xl font-bold text-foreground"
+                  data-testid="period-cogs"
+                >
                   {formatCurrency(periodCogs)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {periodRevenue > 0 ? `${((periodCogs / periodRevenue) * 100).toFixed(0)}% of revenue` : "0% of revenue"}
+                  {periodRevenue > 0
+                    ? `${((periodCogs / periodRevenue) * 100).toFixed(
+                        0
+                      )}% of revenue`
+                    : "0% of revenue"}
                 </p>
               </div>
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -308,8 +338,13 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Gross Margin</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="period-margin">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Gross Margin
+                </p>
+                <p
+                  className="text-2xl font-bold text-foreground"
+                  data-testid="period-margin"
+                >
                   {formatPercentage(periodGrossMargin)}
                 </p>
                 <p className="text-xs text-green-600 mt-1">
@@ -334,7 +369,9 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             {productsLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading...</div>
+              <div className="text-center py-8 text-muted-foreground">
+                Loading...
+              </div>
             ) : topProducts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No sales in selected period
@@ -351,17 +388,22 @@ export default function Reports() {
                 </TableHeader>
                 <TableBody>
                   {topProducts.map((product: any, index: number) => (
-                    <TableRow key={product.productId} data-testid={`product-performance-row-${index}`}>
+                    <TableRow
+                      key={product.productId}
+                      data-testid={`product-performance-row-${index}`}
+                    >
                       <TableCell>
                         <div className="flex items-center space-x-3">
-                          {product.sku.includes('PIZ') ? (
+                          {product.sku.includes("PIZ") ? (
                             <PizzaIcon className="h-4 w-4 text-primary" />
                           ) : (
                             <PillBottle className="h-4 w-4 text-blue-600" />
                           )}
                           <div>
                             <p className="font-medium">{product.productName}</p>
-                            <p className="text-xs text-muted-foreground">{product.sku}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.sku}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
@@ -372,7 +414,9 @@ export default function Reports() {
                         {formatCurrency(product.totalRevenue)}
                       </TableCell>
                       <TableCell>
-                        {formatCurrency(parseFloat(product.totalRevenue) / product.totalQty)}
+                        {formatCurrency(
+                          parseFloat(product.totalRevenue) / product.totalQty
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -403,22 +447,27 @@ export default function Reports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ingredientUsage.slice(0, 10).map((usage: any, index: number) => (
-                    <TableRow key={usage.ingredientId} data-testid={`ingredient-usage-row-${index}`}>
-                      <TableCell className="font-medium">
-                        {getIngredientName(usage.ingredientId)}
-                      </TableCell>
-                      <TableCell>
-                        {usage.totalUsed.toFixed(1)}{getIngredientUnit(usage.ingredientId)}
-                      </TableCell>
-                      <TableCell>
-                        {usage.movementCount}
-                      </TableCell>
-                      <TableCell>
-                        {(usage.totalUsed / usage.movementCount).toFixed(1)}{getIngredientUnit(usage.ingredientId)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {ingredientUsage
+                    .slice(0, 10)
+                    .map((usage: any, index: number) => (
+                      <TableRow
+                        key={usage.ingredientId}
+                        data-testid={`ingredient-usage-row-${index}`}
+                      >
+                        <TableCell className="font-medium">
+                          {getIngredientName(usage.ingredientId)}
+                        </TableCell>
+                        <TableCell>
+                          {usage.totalUsed.toFixed(1)}
+                          {getIngredientUnit(usage.ingredientId)}
+                        </TableCell>
+                        <TableCell>{usage.movementCount}</TableCell>
+                        <TableCell>
+                          {(usage.totalUsed / usage.movementCount).toFixed(1)}
+                          {getIngredientUnit(usage.ingredientId)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             )}
@@ -452,25 +501,40 @@ export default function Reports() {
               ) : (
                 <div className="space-y-3" data-testid="low-stock-alerts">
                   {lowStockItems.map((item: any, index: number) => {
-                    const isCritical = parseFloat(item.totalQuantity) < parseFloat(item.lowStockLevel) / 2;
+                    const isCritical =
+                      parseFloat(item.totalQuantity) <
+                      parseFloat(item.lowStockLevel) / 2;
                     return (
-                      <div 
+                      <div
                         key={item.ingredientId}
                         className={`p-3 border rounded-lg ${
-                          isCritical ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'
+                          isCritical
+                            ? "bg-red-50 border-red-200"
+                            : "bg-yellow-50 border-yellow-200"
                         }`}
                         data-testid={`low-stock-alert-${index}`}
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className={`font-medium ${isCritical ? 'text-red-800' : 'text-yellow-800'}`}>
+                            <p
+                              className={`font-medium ${
+                                isCritical ? "text-red-800" : "text-yellow-800"
+                              }`}
+                            >
                               {item.ingredientName}
                             </p>
-                            <p className={`text-sm ${isCritical ? 'text-red-600' : 'text-yellow-600'}`}>
-                              {parseFloat(item.totalQuantity).toFixed(1)}{item.unit} remaining
+                            <p
+                              className={`text-sm ${
+                                isCritical ? "text-red-600" : "text-yellow-600"
+                              }`}
+                            >
+                              {parseFloat(item.totalQuantity).toFixed(1)}
+                              {item.unit} remaining
                             </p>
                           </div>
-                          <Badge variant={isCritical ? "destructive" : "secondary"}>
+                          <Badge
+                            variant={isCritical ? "destructive" : "secondary"}
+                          >
                             {isCritical ? "CRITICAL" : "LOW"}
                           </Badge>
                         </div>
@@ -488,23 +552,33 @@ export default function Reports() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total Ingredients</span>
-                      <span className="font-semibold">{currentStock.length}</span>
+                      <span className="text-sm text-muted-foreground">
+                        Total Ingredients
+                      </span>
+                      <span className="font-semibold">
+                        {currentStock.length}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Low Stock Items</span>
-                      <span className="font-semibold text-destructive">{lowStockItems.length}</span>
+                      <span className="text-sm text-muted-foreground">
+                        Low Stock Items
+                      </span>
+                      <span className="font-semibold text-destructive">
+                        {lowStockItems.length}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Well Stocked</span>
+                      <span className="text-sm text-muted-foreground">
+                        Well Stocked
+                      </span>
                       <span className="font-semibold text-green-600">
                         {currentStock.length - lowStockItems.length}
                       </span>
@@ -523,12 +597,16 @@ export default function Reports() {
           <CardTitle>Sales Trend - {getPeriodLabel()}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64 bg-muted/50 rounded-lg flex items-center justify-center" data-testid="sales-trend-placeholder">
+          <div
+            className="h-64 bg-muted/50 rounded-lg flex items-center justify-center"
+            data-testid="sales-trend-placeholder"
+          >
             <div className="text-center">
               <BarChart3 className="h-12 w-12 text-muted-foreground mb-4 mx-auto" />
               <p className="text-muted-foreground">Sales trend visualization</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Chart showing {sales.length} transactions totaling {formatCurrency(periodRevenue)}
+                Chart showing {sales.length} transactions totaling{" "}
+                {formatCurrency(periodRevenue)}
               </p>
             </div>
           </div>
