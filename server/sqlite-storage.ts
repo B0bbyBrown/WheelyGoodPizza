@@ -158,12 +158,19 @@ export class SqliteStorage implements IStorage {
     return product;
   }
 
-  async createProduct(product: InsertProduct): Promise<Product> {
+  async createProduct(product: {
+    name: string;
+    sku: string;
+    price: string | number;
+    active?: boolean;
+  }): Promise<Product> {
     const [created] = await db
       .insert(products)
       .values({
-        ...product,
+        name: product.name,
+        sku: product.sku,
         price: toNum(product.price),
+        active: product.active ?? true,
       })
       .returning();
     return created;

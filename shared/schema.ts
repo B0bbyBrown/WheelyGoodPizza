@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
+import { text, integer, real, sqliteTable } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
+import crypto from "crypto";
 
 // Users table
 export const users = sqliteTable("users", {
@@ -28,7 +29,7 @@ export const ingredients = sqliteTable("ingredients", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").unique().notNull(),
-  unit: text("unit").notNull(), // 'g','kg','ml','l','unit'
+  unit: text("unit").notNull(),
   lowStockLevel: real("low_stock_level"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`(unixepoch())`)
@@ -52,54 +53,6 @@ export const suppliers = sqliteTable("suppliers", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .default(sql`(unixepoch())`)
     .notNull(),
-});
-
-// Inventory lots (FIFO)
-export const inventoryLots = sqliteTable("inventory_lots", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  ingredientId: text("ingredient_id")
-    .references(() => ingredients.id)
-    .notNull(),
-  quantity: real("quantity").notNull(), // remaining in same unit as ingredient
-  unitCost: real("unit_cost").notNull(), // cost per unit at purchase time
-  purchasedAt: integer("purchased_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
-
-// Purchases table
-export const purchases = sqliteTable("purchases", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  supplierId: text("supplier_id").references(() => suppliers.id),
-  notes: text("notes"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
-
-// Purchase items table
-export const purchaseItems = sqliteTable("purchase_items", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  purchaseId: text("purchase_id")
-    .references(() => purchases.id)
-    .notNull(),
-  ingredientId: text("ingredient_id")
-    .references(() => ingredients.id)
-    .notNull(),
-  quantity: real("quantity").notNull(),
-  totalCost: real("total_cost").notNull(),
 });
 
 // Products table
@@ -151,27 +104,6 @@ export const cashSessions = sqliteTable("cash_sessions", {
   notes: text("notes"),
 });
 
-// Session inventory snapshots
-export const sessionInventorySnapshots = sqliteTable(
-  "session_inventory_snapshots",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    sessionId: text("session_id")
-      .references(() => cashSessions.id)
-      .notNull(),
-    ingredientId: text("ingredient_id")
-      .references(() => ingredients.id)
-      .notNull(),
-    quantity: real("quantity").notNull(),
-    type: text("type", { enum: ["OPENING", "CLOSING"] }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-  }
-);
-
 // Sales table
 export const sales = sqliteTable("sales", {
   id: text("id")
@@ -182,10 +114,8 @@ export const sales = sqliteTable("sales", {
     .references(() => users.id)
     .notNull(),
   total: real("total").notNull(),
-  cogs: real("cogs").notNull(), // computed via FIFO
-  paymentType: text("payment_type", {
-    enum: ["CASH", "CARD", "OTHER"],
-  }).notNull(),
+  cogs: real("cogs").notNull(),
+  paymentType: text("payment_type", { enum: ["CASH", "CARD", "OTHER"] }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`(unixepoch())`)
     .notNull(),
@@ -207,6 +137,54 @@ export const saleItems = sqliteTable("sale_items", {
   lineTotal: real("line_total").notNull(),
 });
 
+// Purchases table
+export const purchases = sqliteTable("purchases", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  supplierId: text("supplier_id").references(() => suppliers.id),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+// Purchase items table
+export const purchaseItems = sqliteTable("purchase_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  purchaseId: text("purchase_id")
+    .references(() => purchases.id)
+    .notNull(),
+  ingredientId: text("ingredient_id")
+    .references(() => ingredients.id)
+    .notNull(),
+  quantity: real("quantity").notNull(),
+  totalCost: real("total_cost").notNull(),
+});
+
+// Inventory lots table
+export const inventoryLots = sqliteTable("inventory_lots", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  ingredientId: text("ingredient_id")
+    .references(() => ingredients.id)
+    .notNull(),
+  quantity: real("quantity").notNull(),
+  unitCost: real("unit_cost").notNull(),
+  purchasedAt: integer("purchased_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
 // Stock movements table
 export const stockMovements = sqliteTable("stock_movements", {
   id: text("id")
@@ -218,8 +196,8 @@ export const stockMovements = sqliteTable("stock_movements", {
   ingredientId: text("ingredient_id")
     .references(() => ingredients.id)
     .notNull(),
-  quantity: real("quantity").notNull(), // negative for consumption
-  reference: text("reference"), // sale_id, purchase_id, manual_adj, etc.
+  quantity: real("quantity").notNull(),
+  reference: text("reference"),
   note: text("note"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`(unixepoch())`)
@@ -239,7 +217,25 @@ export const expenses = sqliteTable("expenses", {
     .notNull(),
 });
 
-// Insert schemas
+// Session inventory snapshots table
+export const sessionInventorySnapshots = sqliteTable("session_inventory_snapshots", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  sessionId: text("session_id")
+    .references(() => cashSessions.id)
+    .notNull(),
+  ingredientId: text("ingredient_id")
+    .references(() => ingredients.id)
+    .notNull(),
+  quantity: real("quantity").notNull(),
+  type: text("type", { enum: ["OPENING", "CLOSING"] }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+// Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -288,13 +284,7 @@ export const insertCashSessionSchema = createInsertSchema(cashSessions).omit({
   openedAt: true,
   closedAt: true,
   closedBy: true,
-});
-
-export const insertSessionInventorySnapshotSchema = createInsertSchema(
-  sessionInventorySnapshots
-).omit({
-  id: true,
-  createdAt: true,
+  closingFloat: true,
 });
 
 export const insertSaleSchema = createInsertSchema(sales).omit({
@@ -306,9 +296,7 @@ export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
   id: true,
 });
 
-export const insertStockMovementSchema = createInsertSchema(
-  stockMovements
-).omit({
+export const insertStockMovementSchema = createInsertSchema(stockMovements).omit({
   id: true,
   createdAt: true,
 });
@@ -318,37 +306,40 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
   createdAt: true,
 });
 
-// Additional schemas for complex operations
+export const insertSessionInventorySnapshotSchema = createInsertSchema(
+  sessionInventorySnapshots
+).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Custom schemas for complex operations
 export const newPurchaseSchema = z.object({
   supplierId: z.string().uuid().optional(),
   notes: z.string().optional(),
-  items: z
-    .array(
-      z.object({
-        ingredientId: z.string().uuid(),
-        quantity: z.string(),
-        totalCost: z.string(),
-      })
-    )
-    .min(1),
+  items: z.array(
+    z.object({
+      ingredientId: z.string().uuid(),
+      quantity: z.string().min(1),
+      totalCost: z.string().min(1),
+    })
+  ),
 });
 
 export const newSaleSchema = z.object({
   sessionId: z.string().uuid().optional(),
   paymentType: z.enum(["CASH", "CARD", "OTHER"]),
-  items: z
-    .array(
-      z.object({
-        productId: z.string().uuid(),
-        qty: z.number().min(1),
-      })
-    )
-    .min(1),
+  items: z.array(
+    z.object({
+      productId: z.string().uuid(),
+      qty: z.number().int().positive(),
+    })
+  ),
 });
 
 export const stockAdjustmentSchema = z.object({
   ingredientId: z.string().uuid(),
-  quantity: z.string(),
+  quantity: z.string().min(1),
   note: z.string().optional(),
 });
 
@@ -384,6 +375,27 @@ export const closeSessionSchema = z.object({
     .min(1, "At least one inventory item is required"),
 });
 
+export const newProductSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  sku: z.string().min(1, "SKU is required"),
+  price: z.preprocess(
+    (val) => (val ? parseFloat(String(val)) : undefined),
+    z.number({ required_error: "Price is required" }).min(0)
+  ),
+  active: z.boolean().default(true),
+  recipe: z
+    .array(
+      z.object({
+        ingredientId: z.string().uuid(),
+        quantity: z.preprocess(
+          (val) => (val ? parseFloat(String(val)) : undefined),
+          z.number({ required_error: "Quantity is required" }).min(0)
+        ),
+      })
+    )
+    .optional(),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -411,39 +423,14 @@ export type StockMovement = typeof stockMovements.$inferSelect;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
-export type SessionInventorySnapshot =
-  typeof sessionInventorySnapshots.$inferSelect;
-export type InsertSessionInventorySnapshot = z.infer<
+export type SessionInventorySnapshot = z.infer<
   typeof insertSessionInventorySnapshotSchema
 >;
 
+// Complex operation types
 export type NewPurchase = z.infer<typeof newPurchaseSchema>;
 export type NewSale = z.infer<typeof newSaleSchema>;
 export type StockAdjustment = z.infer<typeof stockAdjustmentSchema>;
 export type OpenSessionRequest = z.infer<typeof openSessionSchema>;
 export type CloseSessionRequest = z.infer<typeof closeSessionSchema>;
-
-// Auth validation schemas
-export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  name: z.string().min(1, "Name is required"),
-  // Note: role is intentionally not included here as it will be hardcoded to CASHIER
-});
-
-export type LoginRequest = z.infer<typeof loginSchema>;
-export type RegisterRequest = z.infer<typeof registerSchema>;
-
-// Safe user type without password field
-export type SafeUser = Omit<User, "password">;
-
-// Utility function to sanitize user objects
-export function sanitizeUser(user: User): SafeUser {
-  const { password, ...safeUser } = user;
-  return safeUser;
-}
+export type NewProduct = z.infer<typeof newProductSchema>;

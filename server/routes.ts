@@ -80,24 +80,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", async (req, res) => {
     try {
-      const { recipe, ...productData } = req.body;
-      const data = insertProductSchema.parse(productData);
+      console.log(
+        "Creating product with data:",
+        JSON.stringify(req.body, null, 2)
+      );
+      const data = newProductSchema.parse(req.body);
       const product = await storage.createProduct(data);
 
-      if (recipe && Array.isArray(recipe)) {
-        for (const item of recipe) {
-          const recipeData = insertRecipeItemSchema.parse({
+      if (data.recipe) {
+        console.log("Creating recipe items:", data.recipe);
+        for (const item of data.recipe) {
+          await storage.createRecipeItem({
             productId: product.id,
             ingredientId: item.ingredientId,
             quantity: item.quantity,
           });
-          await storage.createRecipeItem(recipeData);
         }
       }
 
+      console.log("Product created successfully:", product);
       res.json(product);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid product data" });
+    } catch (error: any) {
+      console.error("Failed to create product:", error);
+      if (error.errors || error.issues) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: error.errors || error.issues,
+        });
+      } else {
+        res.status(400).json({
+          error: "Failed to create product",
+          details: error.message || error,
+        });
+      }
     }
   });
 

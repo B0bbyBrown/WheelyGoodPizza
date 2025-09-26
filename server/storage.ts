@@ -54,7 +54,12 @@ export interface IStorage {
   // Products
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
-  createProduct(product: InsertProduct): Promise<Product>;
+  createProduct(product: {
+    name: string;
+    sku: string;
+    price: string | number;
+    active?: boolean;
+  }): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
 
   // Recipe Items
