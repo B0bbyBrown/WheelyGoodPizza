@@ -20,6 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { getActiveCashSession, getLowStock } from "@/lib/api";
+import { useContext } from "react";
+import { AuthContext } from "../App"; // Adjust path if needed
+import { apiRequest } from "../lib/api";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,7 +31,13 @@ interface LayoutProps {
 }
 
 export default function Layout({ children, title, description }: LayoutProps) {
-  const [location] = useLocation();
+  const { user } = useContext(AuthContext);
+  const [location, setLocation] = useLocation();
+
+  const handleLogout = async () => {
+    await apiRequest("POST", "/api/auth/logout");
+    setLocation("/login");
+  };
 
   const { data: activeSession } = useQuery({
     queryKey: ["/api/sessions/active"],
@@ -134,14 +143,14 @@ export default function Layout({ children, title, description }: LayoutProps) {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium" data-testid="user-name">
-                John Smith
+                {user?.name || "Guest"}
               </p>
               <Badge
                 variant="secondary"
                 className="text-xs"
                 data-testid="user-role"
               >
-                ADMIN
+                {user?.role || "GUEST"}
               </Badge>
             </div>
           </div>
@@ -264,6 +273,27 @@ export default function Layout({ children, title, description }: LayoutProps) {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
+              {user && (
+                <>
+                  {user.role === "ADMIN" && (
+                    <Link
+                      href="/users"
+                      className="px-3 py-1 border border-border rounded-md text-sm bg-background"
+                      data-testid="users-link"
+                    >
+                      Users
+                    </Link>
+                  )}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleLogout}
+                    data-testid="logout-button"
+                  >
+                    Logout
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </header>

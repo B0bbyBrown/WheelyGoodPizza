@@ -41,13 +41,7 @@ app.use((req, res, next) => {
 
 (async () => {
   // Seed the database if no admin user exists
-  const existingAdmin = await storage.getUserByEmail("admin@pizzatruck.com");
-  const existingSessions = await storage.getCashSessions();
-  if (!existingAdmin) {
-    await seed();
-  } else {
-    log("Seed data already exists, skipping seed process");
-  }
+  await seed();
 
   const server = await registerRoutes(app);
 

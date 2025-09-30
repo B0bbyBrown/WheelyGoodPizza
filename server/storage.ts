@@ -38,6 +38,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  loginUser(email: string, password: string): Promise<User | null>; // Returns user without password if credentials match
+  getUsers(): Promise<User[]>;
 
   // Ingredients
   getIngredients(): Promise<Ingredient[]>;

@@ -13,7 +13,10 @@ import {
   insertRecipeItemSchema,
   openSessionSchema,
   closeSessionSchema,
+  insertUserSchema,
 } from "@shared/schema";
+import session from "express-session";
+import bcrypt from "bcrypt";
 
 // Helper to get the default admin user ID
 async function getAdminUserId() {
@@ -25,6 +28,82 @@ async function getAdminUserId() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Session Middleware (add this before routes)
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "dev-secret",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 24 * 60 * 60 * 1000,
+      }, // 24 hours
+    })
+  );
+
+  // Auth Middleware (to protect routes)
+  const authMiddleware = (requiredRole?: string) => (req, res, next) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    if (requiredRole && req.session.role !== requiredRole) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  };
+
+  // Auth Routes
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    try {
+      const user = await storage.loginUser(email, password);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      req.session.userId = user.id;
+      req.session.role = user.role;
+      res.json({ user: { id: user.id, email: user.email, role: user.role } });
+    } catch (error) {
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ error: "Logout failed" });
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  app.get("/api/auth/me", authMiddleware(), async (req, res) => {
+    const user = await storage.getUserById(req.session.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ user: { id: user.id, email: user.email, role: user.role } });
+  });
+
+  // User Management (Admin only)
+  app.post("/api/users", authMiddleware("ADMIN"), async (req, res) => {
+    try {
+      const data = insertUserSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      const user = await storage.createUser({
+        ...data,
+        password: hashedPassword,
+      });
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid user data" });
+    }
+  });
+
+  app.get("/api/users", authMiddleware("ADMIN"), async (req, res) => {
+    const users = await storage.getUsers();
+    res.json(users);
+  });
+
+  // Protect sensitive routes (e.g., admin-only)
+  app.use("/api/products", authMiddleware("ADMIN")); // Example: Protect product management
+
   // Ingredients
   app.get("/api/ingredients", async (req, res) => {
     try {
@@ -84,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Creating product with data:",
         JSON.stringify(req.body, null, 2)
       );
-      const data = newProductSchema.parse(req.body);
+      const data = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(data);
 
       if (data.recipe) {

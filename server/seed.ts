@@ -1,26 +1,36 @@
 import { storage } from "./storage";
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 10;
 
 export async function seed() {
   console.log("Starting seed process...");
 
   try {
     // Create admin user (idempotent) - this is the only required seed data
-    let adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
+    const adminUser = await storage.getUserByEmail("admin@pizzatruck.com");
     if (!adminUser) {
-      adminUser = await storage.createUser({
+      const hashedPassword = await bcrypt.hash("password", SALT_ROUNDS);
+      await storage.createUser({
         email: "admin@pizzatruck.com",
-        password: "password",
+        password: hashedPassword,
         name: "John Smith",
         role: "ADMIN",
       });
-      console.log("Created admin user:", adminUser.email, "ID:", adminUser.id);
-    } else {
-      console.log(
-        "Admin user already exists:",
-        adminUser.email,
-        "ID:",
-        adminUser.id
-      );
+      console.log("Created admin user:", "admin@pizzatruck.com");
+    }
+    const secondAdminUser = await storage.getUserByEmail(
+      "6obbybrown@gmail.com"
+    );
+    if (!secondAdminUser) {
+      const hashedPassword = await bcrypt.hash("password", SALT_ROUNDS);
+      await storage.createUser({
+        email: "6obbybrown@gmail.com",
+        password: hashedPassword,
+        name: "Bobby Brown",
+        role: "ADMIN",
+      });
+      console.log("Created admin user:", "6obbybrown@gmail.com");
     }
 
     // Create sample ingredients

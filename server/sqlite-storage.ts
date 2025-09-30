@@ -46,6 +46,7 @@ import {
 import { IStorage } from "./storage";
 import { db, sqlite } from "./db";
 import { eq, and, desc, asc, sum, sql, isNull } from "drizzle-orm";
+import bcrypt from "bcrypt";
 
 // Utility functions for type conversion
 const toNum = (value: string | number | null): number => {
@@ -76,6 +77,21 @@ export class SqliteStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  async loginUser(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) return null;
+    // Return user without password
+    const { password: _, ...safeUser } = user;
+    return safeUser as User;
+  }
+
+  async getUsers(): Promise<User[]> {
+    const allUsers = await db.query.users.findMany();
+    return allUsers.map(({ password: _, ...safeUser }) => safeUser);
   }
 
   async createUser(user: InsertUser): Promise<User> {
