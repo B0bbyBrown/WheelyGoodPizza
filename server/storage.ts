@@ -28,6 +28,7 @@ import {
   type NewPurchase,
   type NewSale,
   type StockAdjustment,
+  type OpenSessionRequest,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -101,7 +102,16 @@ export interface IStorage {
     closedBy?: string
   ): Promise<CashSession>;
   getCashSessions(): Promise<CashSession[]>;
+  openSessionAndMoveStock(
+    sessionData: OpenSessionRequest,
+    userId: string
+  ): Promise<CashSession>;
   createInventorySnapshots(
+    sessionId: string,
+    snapshots: { ingredientId: string; quantity: string }[],
+    type: "OPENING" | "CLOSING"
+  ): Promise<void>;
+  updateStockForSession(
     sessionId: string,
     snapshots: { ingredientId: string; quantity: string }[],
     type: "OPENING" | "CLOSING"

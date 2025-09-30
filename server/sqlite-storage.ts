@@ -344,71 +344,66 @@ export class SqliteStorage implements IStorage {
   async adjustStock(adjustment: StockAdjustment): Promise<void> {
     const quantity = toNum(adjustment.quantity);
 
-    const adjustStockTransaction = db.transaction(
-      (tx, adjustment: StockAdjustment, quantity: number) => {
-        if (quantity > 0) {
-          // Positive adjustment - add inventory lot
-          tx.insert(inventoryLots)
-            .values({
-              ingredientId: adjustment.ingredientId,
-              quantity,
-              unitCost: 0, // Adjustment items have no cost
-            })
-            .run();
-        } else {
-          // Negative adjustment - consume inventory via FIFO
-          const lots = tx
-            .select()
-            .from(inventoryLots)
-            .where(eq(inventoryLots.ingredientId, adjustment.ingredientId))
-            .orderBy(asc(inventoryLots.purchasedAt))
-            .all();
-
-          // Check if we have enough inventory
-          const totalAvailable = lots.reduce(
-            (sum, lot) => sum + lot.quantity,
-            0
-          );
-          const requiredQty = Math.abs(quantity);
-
-          if (totalAvailable < requiredQty) {
-            throw new Error(
-              `Insufficient inventory. Available: ${totalAvailable}, Required: ${requiredQty}`
-            );
-          }
-
-          let remaining = requiredQty;
-
-          for (const lot of lots) {
-            if (remaining <= 0) break;
-
-            const lotQuantity = lot.quantity;
-            const consumed = Math.min(remaining, lotQuantity);
-
-            tx.update(inventoryLots)
-              .set({
-                quantity: lotQuantity - consumed,
-              })
-              .where(eq(inventoryLots.id, lot.id))
-              .run();
-
-            remaining -= consumed;
-          }
-        }
-
-        // Create stock movement record
-        tx.insert(stockMovements)
+    // The transaction callback only receives `tx`.
+    // The inner function has access to `adjustment` and `quantity` from the outer scope.
+    db.transaction((tx) => {
+      if (quantity > 0) {
+        // Positive adjustment - add inventory lot
+        tx.insert(inventoryLots)
           .values({
-            kind: quantity > 0 ? "ADJUSTMENT" : "WASTAGE",
             ingredientId: adjustment.ingredientId,
             quantity,
-            note: adjustment.note,
+            unitCost: 0, // Adjustment items have no cost
           })
           .run();
-      }
-    );
+      } else {
+        // Negative adjustment - consume inventory via FIFO
+        const lots = tx
+          .select()
+          .from(inventoryLots)
+          .where(eq(inventoryLots.ingredientId, adjustment.ingredientId))
+          .orderBy(asc(inventoryLots.purchasedAt))
+          .all();
 
-    adjustStockTransaction(adjustment, quantity);
+        // Check if we have enough inventory
+        const totalAvailable = lots.reduce((sum, lot) => sum + lot.quantity, 0);
+        const requiredQty = Math.abs(quantity);
+
+        if (totalAvailable < requiredQty) {
+          throw new Error(
+            `Insufficient inventory. Available: ${totalAvailable}, Required: ${requiredQty}`
+          );
+        }
+
+        let remaining = requiredQty;
+
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+
+          const lotQuantity = lot.quantity;
+          const consumed = Math.min(remaining, lotQuantity);
+
+          tx.update(inventoryLots)
+            .set({
+              quantity: lotQuantity - consumed,
+            })
+            .where(eq(inventoryLots.id, lot.id))
+            .run();
+
+          remaining -= consumed;
+        }
+      }
+
+      // Create stock movement record
+      tx.insert(stockMovements)
+        .values({
+          kind: quantity > 0 ? "ADJUSTMENT" : "WASTAGE",
+          ingredientId: adjustment.ingredientId,
+          quantity,
+          note: adjustment.note,
+        })
+        .run();
+    });
   }
 
   // Sales (transaction with FIFO COGS calculation)
@@ -602,6 +597,40 @@ export class SqliteStorage implements IStorage {
     return updated;
   }
 
+  async openSessionAndMoveStock(
+    sessionData: OpenSessionRequest,
+    userId: string
+  ): Promise<CashSession> {
+    return sqlite.transaction(() => {
+      // 1. Create the session
+      const session = db
+        .insert(cashSessions)
+        .values({
+          openingFloat: sessionData.openingFloat,
+          notes: sessionData.notes,
+          openedBy: userId,
+        })
+        .returning()
+        .get();
+
+      if (!session) {
+        throw new Error("Failed to create cash session");
+      }
+
+      // 2. Update stock levels (will throw if insufficient)
+      this.updateStockForSession(session.id, sessionData.inventory, "OPENING");
+
+      // 3. Create inventory snapshots
+      this.createInventorySnapshots(
+        session.id,
+        sessionData.inventory,
+        "OPENING"
+      );
+
+      return session;
+    })();
+  }
+
   async getCashSessions(): Promise<CashSession[]> {
     return await db
       .select()
@@ -640,6 +669,81 @@ export class SqliteStorage implements IStorage {
     }
   }
 
+  // Session stock management
+  async updateStockForSession(
+    sessionId: string,
+    snapshots: { ingredientId: string; quantity: string }[],
+    type: "OPENING" | "CLOSING"
+  ): Promise<void> {
+    const updateStockForSessionTransaction = db.transaction((tx) => {
+      for (const snapshot of snapshots) {
+        const quantity = toNum(snapshot.quantity);
+        if (quantity === 0) continue;
+
+        const isOpening = type === "OPENING";
+        const movementQuantity = isOpening ? -quantity : quantity;
+
+        if (isOpening) {
+          // Consume inventory via FIFO for session opening
+          const lots = tx
+            .select()
+            .from(inventoryLots)
+            .where(eq(inventoryLots.ingredientId, snapshot.ingredientId))
+            .orderBy(asc(inventoryLots.purchasedAt))
+            .all();
+
+          const totalAvailable = lots.reduce(
+            (sum, lot) => sum + lot.quantity,
+            0
+          );
+          if (totalAvailable < quantity) {
+            throw new Error(
+              `Insufficient inventory to open session. Available: ${totalAvailable}, Required: ${quantity}`
+            );
+          }
+
+          let remaining = quantity;
+          for (const lot of lots) {
+            if (remaining <= 0) break;
+            const lotQuantity = lot.quantity;
+            const consumed = Math.min(remaining, lotQuantity);
+
+            tx.update(inventoryLots)
+              .set({
+                quantity: lotQuantity - consumed,
+              })
+              .where(eq(inventoryLots.id, lot.id))
+              .run();
+
+            remaining -= consumed;
+          }
+        } else {
+          // Add inventory back for session closing
+          tx.insert(inventoryLots)
+            .values({
+              ingredientId: snapshot.ingredientId,
+              quantity,
+              unitCost: 0, // Returned items have no new cost
+              purchasedAt: new Date(),
+            })
+            .run();
+        }
+
+        // Create stock movement record
+        tx.insert(stockMovements)
+          .values({
+            kind: isOpening ? "SESSION_OUT" : "SESSION_IN",
+            ingredientId: snapshot.ingredientId,
+            quantity: movementQuantity,
+            reference: sessionId,
+          })
+          .run();
+      }
+    });
+
+    updateStockForSessionTransaction();
+  }
+
   // Expenses
   async createExpense(expense: InsertExpense): Promise<Expense> {
     const [created] = await db
@@ -668,20 +772,21 @@ export class SqliteStorage implements IStorage {
   > {
     const result = await db
       .select({
-        ingredientId: inventoryLots.ingredientId,
+        ingredientId: ingredients.id,
         ingredientName: ingredients.name,
         totalQuantity: sum(inventoryLots.quantity),
         unit: ingredients.unit,
         lowStockLevel: ingredients.lowStockLevel,
       })
-      .from(inventoryLots)
-      .innerJoin(ingredients, eq(inventoryLots.ingredientId, ingredients.id))
+      .from(ingredients)
+      .leftJoin(inventoryLots, eq(ingredients.id, inventoryLots.ingredientId))
       .groupBy(
-        inventoryLots.ingredientId,
+        ingredients.id,
         ingredients.name,
         ingredients.unit,
         ingredients.lowStockLevel
-      );
+      )
+      .orderBy(asc(ingredients.name));
 
     return result.map((row) => ({
       ...row,

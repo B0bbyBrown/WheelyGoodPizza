@@ -115,7 +115,9 @@ export const sales = sqliteTable("sales", {
     .notNull(),
   total: real("total").notNull(),
   cogs: real("cogs").notNull(),
-  paymentType: text("payment_type", { enum: ["CASH", "CARD", "OTHER"] }).notNull(),
+  paymentType: text("payment_type", {
+    enum: ["CASH", "CARD", "OTHER"],
+  }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .default(sql`(unixepoch())`)
     .notNull(),
@@ -191,7 +193,14 @@ export const stockMovements = sqliteTable("stock_movements", {
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   kind: text("kind", {
-    enum: ["PURCHASE", "SALE_CONSUME", "ADJUSTMENT", "WASTAGE"],
+    enum: [
+      "PURCHASE",
+      "SALE_CONSUME",
+      "ADJUSTMENT",
+      "WASTAGE",
+      "SESSION_OUT",
+      "SESSION_IN",
+    ],
   }).notNull(),
   ingredientId: text("ingredient_id")
     .references(() => ingredients.id)
@@ -218,22 +227,25 @@ export const expenses = sqliteTable("expenses", {
 });
 
 // Session inventory snapshots table
-export const sessionInventorySnapshots = sqliteTable("session_inventory_snapshots", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  sessionId: text("session_id")
-    .references(() => cashSessions.id)
-    .notNull(),
-  ingredientId: text("ingredient_id")
-    .references(() => ingredients.id)
-    .notNull(),
-  quantity: real("quantity").notNull(),
-  type: text("type", { enum: ["OPENING", "CLOSING"] }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
+export const sessionInventorySnapshots = sqliteTable(
+  "session_inventory_snapshots",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    sessionId: text("session_id")
+      .references(() => cashSessions.id)
+      .notNull(),
+    ingredientId: text("ingredient_id")
+      .references(() => ingredients.id)
+      .notNull(),
+    quantity: real("quantity").notNull(),
+    type: text("type", { enum: ["OPENING", "CLOSING"] }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }
+);
 
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -296,7 +308,9 @@ export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
   id: true,
 });
 
-export const insertStockMovementSchema = createInsertSchema(stockMovements).omit({
+export const insertStockMovementSchema = createInsertSchema(
+  stockMovements
+).omit({
   id: true,
   createdAt: true,
 });

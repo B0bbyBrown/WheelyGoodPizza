@@ -61,15 +61,6 @@ Accessible modal dialog using Radix UI:
 - Error handling
 - Loading states
 
-### DataTable (`components/DataTable.tsx`)
-
-Reusable table component with:
-
-- Sorting
-- Pagination
-- Empty states
-- Loading states
-
 ## Pages
 
 ### Dashboard (`pages/dashboard.tsx`)

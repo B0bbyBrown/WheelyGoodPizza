@@ -257,49 +257,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check for active session
       const activeSession = await storage.getActiveCashSession();
       if (activeSession) {
-        res.status(400).json({
+        return res.status(400).json({
           error: "Cannot open a new session while another session is active",
         });
-        return;
       }
 
       const body = openSessionSchema.parse(req.body);
       console.log("Parsed session data:", body);
 
-      const data = {
-        openingFloat: body.openingFloat,
-        notes: body.notes || "Session opened",
-        openedBy: adminUserId,
-      };
+      const session = await storage.openSessionAndMoveStock(body, adminUserId);
 
-      console.log("Creating session with data:", data);
-      const session = await storage.openCashSession(data);
-      console.log("Session created:", session);
-
-      console.log("Creating inventory snapshots:", body.inventory);
-      await storage.createInventorySnapshots(
-        session.id,
-        body.inventory,
-        "OPENING"
-      );
-      console.log("Inventory snapshots created");
+      console.log("Session created and stock updated successfully:", session);
 
       res.json(session);
     } catch (error) {
       console.error("Failed to open cash session:", error);
-      if (error.errors) {
-        console.log("Validation error:", error.errors);
-        res
-          .status(400)
-          .json({ error: "Validation failed", details: error.errors });
-      } else if (error.issues) {
+      if (error.errors || error.issues) {
         // Zod validation error
-        console.log("Zod validation error:", error.issues);
-        res
-          .status(400)
-          .json({ error: "Validation failed", details: error.issues });
+        res.status(400).json({
+          error: "Validation failed",
+          details: error.errors || error.issues,
+        });
       } else {
-        console.log("Other error:", error);
         res.status(400).json({
           error: "Failed to open cash session",
           details: error.message || error,
@@ -320,6 +299,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminUserId
       );
 
+      await storage.updateStockForSession(
+        session.id,
+        body.inventory,
+        "CLOSING"
+      );
       await storage.createInventorySnapshots(
         session.id,
         body.inventory,

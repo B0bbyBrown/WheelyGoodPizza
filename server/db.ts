@@ -150,7 +150,7 @@ try {
 
     CREATE TABLE IF NOT EXISTS stock_movements (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-      kind TEXT NOT NULL CHECK(kind IN ('PURCHASE', 'SALE_CONSUME', 'ADJUSTMENT', 'WASTAGE')),
+      kind TEXT NOT NULL CHECK(kind IN ('PURCHASE', 'SALE_CONSUME', 'ADJUSTMENT', 'WASTAGE', 'SESSION_OUT', 'SESSION_IN')),
       ingredient_id TEXT NOT NULL REFERENCES ingredients(id),
       quantity REAL NOT NULL,
       reference TEXT,

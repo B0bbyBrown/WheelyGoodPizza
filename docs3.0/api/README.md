@@ -92,7 +92,11 @@ Close an active session.
 
 #### GET /api/sales
 
-List all sales.
+List all sales. Supports optional `?from` and `?to` date string query parameters to filter by a date range.
+
+#### GET /api/sales/:id/items
+
+Get the line items for a specific sale.
 
 #### POST /api/sales
 
@@ -117,6 +121,10 @@ Create a new sale.
 
 List all ingredients.
 
+#### GET /api/stock/current
+
+Get the current aggregated stock level for all ingredients.
+
 #### POST /api/ingredients
 
 Create a new ingredient.
@@ -132,6 +140,10 @@ Create a new ingredient.
 #### GET /api/stock/low
 
 Get ingredients below low stock level.
+
+#### GET /api/stock/movements
+
+Get stock movements for a specific ingredient, requires `?ingredientId=uuid` query parameter.
 
 #### POST /api/stock/adjust
 
@@ -153,30 +165,25 @@ List all products.
 
 #### POST /api/products
 
-Create a new product.
+Create a new product. The `recipe` array is optional.
 
 ```json
 {
   "name": "Margherita",
   "sku": "PIZ-001",
-  "price": "89.99"
-}
-```
-
-#### POST /api/products/:id/recipe
-
-Set product recipe.
-
-```json
-{
-  "items": [
+  "price": "89.99",
+  "recipe": [
     {
       "ingredientId": "uuid",
-      "quantity": "0.2"
+      "quantity": 0.2
     }
   ]
 }
 ```
+
+#### GET /api/products/:id/recipe
+
+Get the recipe for a specific product.
 
 ### Purchases
 
@@ -220,6 +227,24 @@ Create a new supplier.
 }
 ```
 
+### Expenses
+
+#### GET /api/expenses
+
+List all expenses.
+
+#### POST /api/expenses
+
+Create a new expense.
+
+```json
+{
+  "label": "Marketing Flyers",
+  "amount": "350.00",
+  "paidVia": "CARD"
+}
+```
+
 ### Reports
 
 #### GET /api/reports/overview
@@ -228,11 +253,11 @@ Get today's KPIs.
 
 #### GET /api/reports/top-products
 
-Get top-selling products.
+Get top-selling products. Supports optional `?from` and `?to` date string query parameters to filter by a date range.
 
 #### GET /api/reports/activity
 
-Get recent activity feed.
+Get recent activity feed. Supports an optional `?limit=N` query parameter.
 
 ## Error Codes
 
